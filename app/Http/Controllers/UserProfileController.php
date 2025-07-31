@@ -424,15 +424,18 @@ class UserProfileController extends Controller
     // Mise à jour de l’utilisateur
     $user->update($updateData);
 
-    // Réponse
+    // Recharger l'utilisateur pour avoir les données à jour
+    $user->refresh();
+    
+    // Réponse avec la structure attendue par le frontend
     return response()->json([
         'status' => 'success',
         'message' => 'Profil mis à jour avec succès.',
         'user' => [
             'id' => $user->id,
-            'nom' => $user->nom,
-            'prenom' => $user->prenom,
-            'email' => $user->email,
+            'nom' => $user->Nom,  // Champs DB en majuscules
+            'prenom' => $user->Prenom,
+            'email' => $user->Email,  // Email toujours inclus
             'photo' => $user->photo ? asset('storage/photos/' . $user->photo) : null,
         ]
     ]);

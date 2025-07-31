@@ -2,10 +2,6 @@
 /node_modules
 /public/build
 /public/hot
-/public/bdt
-/public/assistance_technique
-/public/livrables
-/public/archives
 # /public/*
 /public/storage
 /public/profils
@@ -26,6 +22,4 @@ web.config
 /.idea
 /.vscode
 /storage/app/*
-/public/bordereaux
-/public/visites_preleminaires
 /public/web.config

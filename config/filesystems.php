@@ -122,12 +122,6 @@ return [
 
     'links' => [
         public_path('storage') => storage_path('app/public'),
-        // public_path('bordereaux') => storage_path('app/bordereaux'),
-        // public_path('livrables') => storage_path('app/livrables'),
-        public_path('visites_preleminaires') => storage_path('app/visites_preleminaires'),
-        // public_path('archives') => storage_path('app/archives'),
-        public_path('bdt') => storage_path('app/bdt'),
-        public_path('assistance_technique') => storage_path('app/assistance_technique'),
     ],
 
 ];
