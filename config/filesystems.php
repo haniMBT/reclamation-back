@@ -1,0 +1,133 @@
+<?php
+
+return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Default Filesystem Disk
+    |--------------------------------------------------------------------------
+    |
+    | Here you may specify the default filesystem disk that should be used
+    | by the framework. The "local" disk, as well as a variety of cloud
+    | based disks are available to your application. Just store away!
+    |
+    */
+
+    'default' => env('FILESYSTEM_DISK', 'local'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Filesystem Disks
+    |--------------------------------------------------------------------------
+    |
+    | Here you may configure as many filesystem "disks" as you wish, and you
+    | may even configure multiple disks of the same driver. Defaults have
+    | been set up for each driver as an example of the required values.
+    |
+    | Supported Drivers: "local", "ftp", "sftp", "s3"
+    |
+    */
+
+    'disks' => [
+
+        'local' => [
+            'driver' => 'local',
+            'root' => storage_path('app'),
+            'throw' => false,
+        ],
+
+        'public' => [
+            'driver' => 'local',
+            'root' => storage_path('app/public'),
+            'url' => env('APP_URL') . '/storage',
+            'visibility' => 'public',
+            'throw' => false,
+        ],
+
+        's3' => [
+            'driver' => 's3',
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'region' => env('AWS_DEFAULT_REGION'),
+            'bucket' => env('AWS_BUCKET'),
+            'url' => env('AWS_URL'),
+            'endpoint' => env('AWS_ENDPOINT'),
+            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'throw' => false,
+        ],
+
+        'rcet' => [
+            'driver' => 'local',
+            'root' => env('rcet_PATH'), // Chemin absolu vers la partition C par defaut si F nexiste pas
+            'url' => env('APP_URL') . '/storage/rcet/fichiers', // URL publique vers les fichiers
+            'visibility' => 'public',
+            'throw' => false,
+        ],
+        'archives' => [
+            'driver' => 'local',
+            // 'root' => 'C:/archives', // Chemin absolu vers la partition F
+            'root' => env('ARCHIVES_PATH'), // Chemin absolu vers la partition C par defaut si F nexiste pas
+            'url' => env('APP_URL') . '/storage/archives', // URL publique vers les fichiers
+            'visibility' => 'public',
+            'throw' => false,
+        ],
+        'bordereaux' => [
+            'driver' => 'local',
+            'root' => env('BC_PATH'),
+            'url' => env('APP_URL') . '/storage/bordereaux',
+            'visibility' => 'public',
+            'throw' => false,
+        ],
+        'bordereauxRDEX' => [
+            'driver' => 'local',
+            'root' => env('BCRDEX_PATH'),
+            'url' => '/storage/documents/BRDs',
+            'visibility' => 'public',
+            'throw' => false,
+        ],
+        'network_bcRDEX' => [
+            'driver' => 'local',
+            'root' => env('BCRDEX_PATH', '\\\\192.168.108.2\\BRDs$'), // Chemin UNC
+            'url' => env('APP_URL') .'/storage/documents/BRDs',//env('BCRDEX_URL', 'http://votre-domaine.com/bcRDEX'),
+            'visibility' => 'public',
+        ],
+        'livrables' => [
+            'driver' => 'local',
+            'root' => env('LIVRABLE_PATH'),
+            'url' => env('APP_URL') . '/storage/livrables',
+            'visibility' => 'public',
+            'throw' => false,
+        ],
+        'aides_supports' => [
+            'driver' => 'local',
+            'root' => env('AIDES_SUPPORTS_PATH'), // Chemin absolu vers la partition C par defaut si F nexiste pas
+            'url' => env('APP_URL') . '/storage/app/aides_et_supports', // URL publique vers les fichiers
+            'visibility' => 'public',
+            'throw' => false,
+        ],
+    ],
+
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Symbolic Links
+    |--------------------------------------------------------------------------
+    |
+    | Here you may configure the symbolic links that will be created when the
+    | `storage:link` Artisan command is executed. The array keys should be
+    | the locations of the links and the values should be their targets.
+    |
+    */
+
+    'links' => [
+        public_path('storage') => storage_path('app/public'),
+        // public_path('bordereaux') => storage_path('app/bordereaux'),
+        // public_path('livrables') => storage_path('app/livrables'),
+        public_path('visites_preleminaires') => storage_path('app/visites_preleminaires'),
+        // public_path('archives') => storage_path('app/archives'),
+        public_path('bdt') => storage_path('app/bdt'),
+        public_path('assistance_technique') => storage_path('app/assistance_technique'),
+    ],
+
+];
