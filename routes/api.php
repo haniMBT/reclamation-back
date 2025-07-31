@@ -1,14 +1,9 @@
 <?php
 
-use App\Http\Controllers\AideController;
-use App\Models\User;
+use App\Http\Controllers\MainController;
+use App\Http\Controllers\UserProfileController;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Auth;
-use Carbon\Carbon;
-use Tymon\JWTAuth\Facades\JWTAuth;
-use Illuminate\Support\Facades\Hash;
 
 /*
 |--------------------------------------------------------------------------
@@ -21,10 +16,39 @@ use Illuminate\Support\Facades\Hash;
 |
 */
 
-Route::post('/login', [App\Http\Controllers\MainController::class, 'login']);
-Route::get('/fiches', [PublicationFichesController::class, 'fiches'])->name('fiches');
-// check.token.exiration(log-history(axios data sending), token expiration or add 30mn)
-Route::middleware(['auth:sanctum', 'check.token.expiration'])->group(function ($request) {
-    Route::post('/logout', [\App\Http\Controllers\MainController::class, 'logout']);
-    Route::get('/user', [\App\Http\Controllers\MainController::class, 'user']);
+// Routes publiques (sans authentification)
+Route::post('/login', [MainController::class, 'login']);
+
+// Mot de passe oublié
+Route::post('/forgot-password', [UserProfileController::class, 'forgotPassword']);
+Route::post('/reset-password', [UserProfileController::class, 'resetPassword']);
+
+// Routes protégées (avec authentification)
+Route::middleware(['auth:sanctum'])->group(function () {
+    // Informations utilisateur
+    Route::get('/user', [MainController::class, 'user']);
+    Route::post('/logout', [MainController::class, 'logout']);
+    
+    // Gestion du profil
+    Route::get('/profile', [UserProfileController::class, 'getProfile']);
+    Route::post('/profile/update', [UserProfileController::class, 'updateProfile']);
+    Route::post('/profile/upload-photo', [UserProfileController::class, 'uploadPhoto']);
+    Route::delete('/profile/delete-photo', [UserProfileController::class, 'deletePhoto']);
+    
+    // Gestion des mots de passe
+    Route::post('/profile/change-password', [UserProfileController::class, 'changePassword']);
+    Route::post('/profile/request-password-change-code', [UserProfileController::class, 'requestPasswordChangeCode']);
+    Route::post('/profile/change-password-with-code', [UserProfileController::class, 'changePasswordWithCode']);
+    
+    // Validation en temps réel
+    Route::post('/profile/validate-current-password', [UserProfileController::class, 'validateCurrentPassword']);
+    Route::post('/profile/validate-email', [UserProfileController::class, 'validateEmail']);
+    
+    // Route pour récupérer les privilèges (compatibilité avec l'existant)
+    Route::post('/allPrivileges', function (Request $request) {
+        return response()->json([
+            'status' => 'success',
+            'privileges' => $request->user()->privileges ?? []
+        ]);
+    });
 });
