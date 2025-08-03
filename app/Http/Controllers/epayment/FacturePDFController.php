@@ -73,7 +73,7 @@ class FacturePDFController extends Controller
             $this->fpdf->MultiCell(40,5,utf8_decode("FACTURE N° :"),'','L',false);
             $this->fpdf->SetXY(50,60);
             $this->fpdf->MultiCell(60,5,$f->facrfe,'','L',false);
-            $this->fpdf->SetTitle(utf8_decode("Facture n° : Votre numéro de facture"));
+            $this->fpdf->SetTitle(utf8_decode("Facture n° : ". $f->facnum .""));
 
             $this->fpdf->SetFont('helvetica','B',14);
             $this->fpdf->SetXY(95,60);
