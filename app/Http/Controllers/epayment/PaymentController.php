@@ -34,7 +34,6 @@ class PaymentController extends Controller
         $request->validate([
             'terms' => 'required|accepted'
         ]);
-
         try {
             $facture = Facture::find($id);
             if (!$facture) {
@@ -43,7 +42,6 @@ class PaymentController extends Controller
                     'message' => 'Facture introuvable'
                 ], 404);
             }
-
             $user = Auth::user();
             if (!$user) {
                 return response()->json([
@@ -63,7 +61,6 @@ class PaymentController extends Controller
 
             // Appeler le service de paiement
             $response = $this->paymentService->registerPayment($order, $facture, $user);
-
             if ($response && $response->errorCode == 0) {
                 return response()->json([
                     'success' => true,

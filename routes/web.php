@@ -1,23 +1,10 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\bdt\FicheAlerteController;
-use App\Http\Controllers\bdt\FichePathologieController;
-use App\Http\Controllers\GestionRisques\PlanController;
-use App\Http\Controllers\assistance_technique\DemandeAssistanceController;
-use App\Http\Controllers\assistance_technique\DemandeEclaircissementController;
-use App\Http\Controllers\assistance_technique\DemandeAutorisationController;
-use App\Http\Controllers\bdt\PublicationFichesController;
-use App\Http\Controllers\Essais\EssaiController;
-use App\Http\Controllers\Essais\ReceptionEnregistrementController;
-use App\Http\Controllers\archive\ArchiveController;
+
 use App\Http\Controllers\epayment\FactureController;
-use App\Http\Controllers\Essais\InterventionController;
-use App\Http\Controllers\RelationClient\RelationClientController;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
-use Defuse\Crypto\Crypto;
-use Defuse\Crypto\Key;
+use App\Http\Controllers\epayment\PayementController;
+use App\Http\Controllers\SiteController;
 
 /*
 |--------------------------------------------------------------------------
@@ -36,4 +23,17 @@ Route::get('/', function () {
 
 require __DIR__ . '/auth.php';
 
+// Route pour les conditions d'utilisation (PDF)
+Route::get('conditions', [SiteController::class, 'generateConditions'])->name('conditions');
+
+// Routes e-paiement
 Route::get('epayment/factures/{id}/pdf', [FactureController::class, 'generatePDF']);
+Route::get('epayment/conditions/pdf', [SiteController::class, 'generateConditions']);
+
+Route::middleware('auth')->group(function () {
+    Route::post('/payment/process/{id}', [App\Http\Controllers\epayment\PaymentController::class, 'processPayment']);
+    Route::get('/payment/success/{id}', [App\Http\Controllers\epayment\PaymentController::class, 'success']);
+    Route::get('/payment/failure/{id}', [App\Http\Controllers\epayment\PaymentController::class, 'failure']);
+    Route::get('/receipt/{recuId}', [App\Http\Controllers\epayment\PaymentController::class, 'getReceipt']);
+    Route::get('/erreur-paiement/{id}', [App\Http\Controllers\epayment\PaymentController::class, 'errorPayment'])->name('payment.erreur');
+});

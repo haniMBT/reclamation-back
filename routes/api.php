@@ -60,10 +60,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/facturesStats', [App\Http\Controllers\epayment\FactureController::class, 'stats']);
         
         // Gestion des paiements
-        Route::post('/payment/process/{id}', [App\Http\Controllers\epayment\PaymentController::class, 'processPayment']);
-        Route::get('/payment/success/{id}', [App\Http\Controllers\epayment\PaymentController::class, 'success']);
-        Route::get('/payment/failure/{id}', [App\Http\Controllers\epayment\PaymentController::class, 'failure']);
-        Route::get('/receipt/{recuId}', [App\Http\Controllers\epayment\PaymentController::class, 'getReceipt']);
+        // Route::post('/payment/process/{id}', [App\Http\Controllers\epayment\PaymentController::class, 'processPayment']);
+        // Route::get('/payment/success/{id}', [App\Http\Controllers\epayment\PaymentController::class, 'success']);
+        // Route::get('/payment/failure/{id}', [App\Http\Controllers\epayment\PaymentController::class, 'failure']);
+        // Route::get('/receipt/{recuId}', [App\Http\Controllers\epayment\PaymentController::class, 'getReceipt']);
     });
 });
 
