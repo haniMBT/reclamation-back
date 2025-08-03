@@ -27,4 +27,9 @@ Route::get('/fiches', [PublicationFichesController::class, 'fiches'])->name('fic
 Route::middleware(['auth:sanctum', 'check.token.expiration'])->group(function ($request) {
     Route::post('/logout', [\App\Http\Controllers\MainController::class, 'logout']);
     Route::get('/user', [\App\Http\Controllers\MainController::class, 'user']);
+
+     require __DIR__ . '/api_reclamation.php';
+    // // Routes pour la gestion des réclamations
+    // Route::post('/reclamation', [\App\Http\Controllers\ReclamationClient\ReclamationController::class, 'store'])
+    //       ->name('reclamation.store');
 });
