@@ -66,15 +66,3 @@ Route::middleware(['auth:sanctum'])->group(function () {
         // Route::get('/receipt/{recuId}', [App\Http\Controllers\epayment\PaymentController::class, 'getReceipt']);
     });
 });
-
-// Routes publiques pour le module e-paiement (invités)
-Route::prefix('epayment/guest')->group(function () {
-    // Recherche de factures pour invités
-    Route::post('/search', [App\Http\Controllers\epayment\GuestPaymentController::class, 'searchFacture']);
-    
-    // Paiement pour invités
-    Route::post('/payment/process/{id}', [App\Http\Controllers\epayment\GuestPaymentController::class, 'processPayment']);
-    Route::get('/payment/success/{id}', [App\Http\Controllers\epayment\GuestPaymentController::class, 'success']);
-    Route::get('/payment/failure/{id}', [App\Http\Controllers\epayment\GuestPaymentController::class, 'failure']);
-    Route::get('/receipt/{id}', [App\Http\Controllers\epayment\GuestPaymentController::class, 'getReceipt']);
-});

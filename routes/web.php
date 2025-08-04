@@ -30,10 +30,16 @@ Route::get('conditions', [SiteController::class, 'generateConditions'])->name('c
 Route::get('epayment/factures/{id}/pdf', [FactureController::class, 'generatePDF']);
 Route::get('epayment/conditions/pdf', [SiteController::class, 'generateConditions']);
 
+Route::post('/payment/process/{id}/{email}', [App\Http\Controllers\epayment\PaymentController::class, 'processPayment'])->name('payment.process');;
+Route::get('/payment/success/{id}', [App\Http\Controllers\epayment\PaymentController::class, 'success'])->name('payment.success');
+Route::get('/payment/failure/{id}', [App\Http\Controllers\epayment\PaymentController::class, 'failure'])->name('payment.failure');
+
+
 Route::middleware('auth')->group(function () {
-    Route::post('/payment/process/{id}', [App\Http\Controllers\epayment\PaymentController::class, 'processPayment']);
-    Route::get('/payment/success/{id}', [App\Http\Controllers\epayment\PaymentController::class, 'success']);
-    Route::get('/payment/failure/{id}', [App\Http\Controllers\epayment\PaymentController::class, 'failure']);
+    // Route::get('/payment/success/{id}/{email}', [App\Http\Controllers\epayment\PaymentController::class, 'success']);
+    // Route::get('/payment/failure/{id}', [App\Http\Controllers\epayment\PaymentController::class, 'failure']);
     Route::get('/receipt/{recuId}', [App\Http\Controllers\epayment\PaymentController::class, 'getReceipt']);
+    Route::get('/receipt/{recuId}/download', [App\Http\Controllers\epayment\PaymentController::class, 'downloadReceipt'])->name('payment.downloadrecu');
+    Route::post('/receipt/{recuId}/send-email', [App\Http\Controllers\epayment\PaymentController::class, 'sendReceiptByEmail'])->name('payment.sendmail');
     Route::get('/erreur-paiement/{id}', [App\Http\Controllers\epayment\PaymentController::class, 'errorPayment'])->name('payment.erreur');
 });
