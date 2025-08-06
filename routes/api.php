@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\MainController;
 use App\Http\Controllers\UserProfileController;
+use App\Http\Controllers\Proforma\ProformaController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -64,5 +65,13 @@ Route::middleware(['auth:sanctum'])->group(function () {
         // Route::get('/payment/success/{id}', [App\Http\Controllers\epayment\PaymentController::class, 'success']);
         // Route::get('/payment/failure/{id}', [App\Http\Controllers\epayment\PaymentController::class, 'failure']);
         // Route::get('/receipt/{recuId}', [App\Http\Controllers\epayment\PaymentController::class, 'getReceipt']);
+    });
+
+    // Routes du module proforma pour utilisateurs authentifiés
+    Route::prefix('proforma')->group(function () {
+        Route::get('/', [ProformaController::class, 'index']);
+        Route::post('/search', [ProformaController::class, 'search']);
+        Route::post('/calculate', [ProformaController::class, 'calculate']);
+        Route::get('/history', [ProformaController::class, 'history']);
     });
 });
