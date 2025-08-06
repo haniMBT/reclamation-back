@@ -74,4 +74,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/calculate', [ProformaController::class, 'calculate']);
         Route::get('/history', [ProformaController::class, 'history']);
     });
+
+    require __DIR__ . '/api_reclamation.php';
 });
