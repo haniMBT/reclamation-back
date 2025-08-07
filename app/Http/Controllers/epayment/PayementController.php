@@ -19,9 +19,10 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 use App\Post;
-use PDF;
+
 use Carbon\Carbon;
 
 class PayementController extends Controller
@@ -50,7 +51,6 @@ class PayementController extends Controller
             // 'g-recaptcha-response' => 'required|captcha',
             'terms' =>'accepted'
         ]);
-        Log::info('abdouuu');
         $facture = Facture::where('id', $id)->first();
        //dd($facture);
         if (!$facture) {
@@ -87,7 +87,7 @@ class PayementController extends Controller
     {
         $token = $request->query('token');
         if (!$token) {
-            return redirect()->route('payement.error')->with('error', 'Token de paiement manquant.');
+            return redirect()->route('payment.error')->with('error', 'Token de paiement manquant.');
         }
 
         $order = EOrder::where('payment_token', $token)->first();
@@ -184,7 +184,7 @@ class PayementController extends Controller
         //PRODUCTION
         $url = "https://cib.satim.dz/payment/rest/confirmOrder.do?language=$language&orderId=$orderId&password=$password&userName=$username";
 
-        try {
+        // try {
             // Utilisation de cURL au lieu de file_get_contents
             $ch = curl_init($url);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -201,7 +201,7 @@ class PayementController extends Controller
                 ]);
                 
             }
-            If ($obj->params->respCode=="00" and $obj->OrderStatus=="2"){
+            if ($obj->params->respCode=="00" and $obj->OrderStatus=="2"){
             // Vérification du paiement
                 if (isset($obj->ErrorCode) && $obj->ErrorCode == 0) {
                     //dd('test');
@@ -214,7 +214,7 @@ class PayementController extends Controller
                 }
                 $order=ConfirmOrder::where ('facnum',$facture->facnum)
                 ->first();
-                $dateValable = Carbon::parse($order->created_at)->addHour()->format('d-m-Y H:i:s');
+                $dateValable = Carbon::parse($order?->created_at)->addHour()?->format('d-m-Y H:i:s');
                 $pdf = $this->generatePDF($facture, $obj, $dateValable);
                 $this->sendusermail($order->recuId);
 
@@ -223,21 +223,23 @@ class PayementController extends Controller
             
             }
             else{
-                return view('paiement.failure', compact('facture', 'obj'))->with('error', 'Échec du paiement.');
+                return view('payement.failure', compact('facture', 'obj'))->with('error', 'Échec du paiement.');
             }
 
-        } catch (\Exception $e) {
-            Log::error("Erreur de paiement : " . $e->getMessage());
-            return view('payement.error', [
-                'facture' => $facture,
-                'message' => 'Une erreur est survenue lors du traitement du paiement.'
-            ]);
-        }
+        // } catch (\Exception $e) {
+        //     Log::error("Erreur de paiement : " . $e->getMessage());
+        //     return view('payement.error', [
+        //         'facture' => $facture,
+        //         'message' => 'Une erreur est survenue lors du traitement du paiement.'
+        //     ]);
+        // }
     }
     //création du confirm order
     private function createConfirmOrder($obj, $facture, $orderId)
     {   
-        try {
+        // try {
+        Log::info('abdouuuuuuuuu ch: ' . json_encode($obj));
+
             ConfirmOrder::create([
                 'facnum' => $facture->facnum,
                 'facrfe'=>$facture->facrfe ?? null,
@@ -261,45 +263,55 @@ class PayementController extends Controller
                 'Ip' => $obj->Ip ?? request()->ip(),
                 'SvfeResponse' => $obj->SvfeResponse ?? null,
                 'Amount' => $obj->Amount ?? null,
+                'recuId' => 1538298744
             ]);
-        } catch (\Exception $e) {
-            // Affiche l'erreur à l'écran (utile en dev, pas en prod)
-            //dd("Erreur lors de l'enregistrement de la commande confirmée : " . $e->getMessage());
+        // } catch (\Exception $e) {
+        //     // Affiche l'erreur à l'écran (utile en dev, pas en prod)
+        //     //dd("Erreur lors de l'enregistrement de la commande confirmée : " . $e->getMessage());
         
-            // OU en production, logguer l'erreur sans l'afficher
-            Log::error("Erreur lors de l'enregistrement ConfirmOrder: " . $e->getMessage());
+        //     // OU en production, logguer l'erreur sans l'afficher
+        //     Log::error("Erreur lors de l'enregistrement ConfirmOrder: " . $e->getMessage());
         
-            // Et rediriger avec un message d'erreur
-            // return redirect()->back()->with('error', 'Une erreur est survenue lors de l\'enregistrement du paiement.');
-        }
+        //     // Et rediriger avec un message d'erreur
+        //     // return redirect()->back()->with('error', 'Une erreur est survenue lors de l\'enregistrement du paiement.');
+        // }
        
     }
 
-    private function generatePDF($facture, $obj, $dateValable)
-    {
-        $order = ConfirmOrder::where('facnum', $facture->facnum)->first();
+private function generatePDF($facture, $obj, $dateValable)
+{
+    $order = ConfirmOrder::where('facnum', $facture->facnum)->first();
 
-        $pdf = PDF::loadView('payement.recu', compact('facture', 'order', 'dateValable'));
+    // try {
+        // Génère le PDF depuis la vue Blade
+        $pdf = Pdf::loadView('payement.recu', compact('facture', 'order', 'dateValable'));
 
+        // Nom de fichier
         $fileName = $facture->domcod . '_' . $facture->facnum . '.pdf';
         $storagePath = 'download/' . $fileName;
 
-        // Assure-toi que le dossier existe
-        \Storage::makeDirectory('download');
+        // Crée le dossier s'il n'existe pas
+        Storage::makeDirectory('download');
 
-        // Sauvegarde dans storage/app/download/
-        \Storage::put($storagePath, $pdf->output());
+        // Sauvegarde le fichier dans storage/app/download/
+        Storage::put($storagePath, $pdf->output());
 
-        // Log pour debug
-        if (\Storage::exists($storagePath)) {
-            \Log::info("✅ PDF généré avec succès : $storagePath");
+        // Log de succès
+        if (Storage::exists($storagePath)) {
+            Log::info("✅ PDF généré avec succès : $storagePath");
         } else {
-            \Log::error("❌ Échec de création du PDF : $storagePath");
+            Log::error("❌ Échec de création du PDF : $storagePath");
         }
 
-        // Optionnel : retour PDF dans navigateur
+        // Retourne le PDF dans le navigateur
         return $pdf->stream('download.pdf');
-    }
+
+    // } catch (\Exception $e) {
+    //     // Log de l'erreur, probablement liée à GD
+    //     Log::error("Erreur lors de la génération du PDF : " . $e->getMessage());
+    //     return response()->json(['error' => 'Erreur lors de la génération du PDF'], 500);
+    // }
+}
 
 
     //erreur de paiement

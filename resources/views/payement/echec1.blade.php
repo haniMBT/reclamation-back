@@ -128,7 +128,7 @@
     </div>
     <div class="col-half">
       <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="{{ url('/') }}">Accueil</a></li>
+        <li class="breadcrumb-item"><a href="{{ env('FRONTEND_URL') . '/epayment/factures' }}">Accueil</a></li>
         <li class="breadcrumb-item active">Échec de Paiement</li>
       </ol>
     </div>
@@ -163,7 +163,8 @@
         </div>
 
         <div class="payment-info">
-          <a href="{{ route('facture.payer', $facture->id) }}" class="btn">
+          {{-- <a href="{{ route('facture.payer', $facture->id) }}" class="btn"> --}}
+          <a href="{{ env('FRONTEND_URL') . '/epayment/payment/' . $facture->id }}" class="back-button">
               Réessayer le Paiement
           </a>
         </div>
