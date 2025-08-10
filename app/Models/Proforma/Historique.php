@@ -7,6 +7,8 @@ use App\Models\User;
 
 class Historique extends Model
 {
+    // Si votre migration active s'appelle proforma_historiques, décommentez la ligne ci-dessous
+    // protected $table = 'proforma_historiques';
     protected $table = 'historiques';
     protected $guarded = ["id"];
     
