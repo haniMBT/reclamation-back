@@ -30,17 +30,20 @@ Route::get('conditions', [SiteController::class, 'generateConditions'])->name('c
 Route::get('epayment/factures/{id}/pdf', [FactureController::class, 'generatePDF']);
 Route::get('epayment/conditions/pdf', [SiteController::class, 'generateConditions']);
 
-Route::post('/payment/process/{id}/{email}', [PayementController::class, 'processPayment'])->name('payment.process');;
+// Route::middleware('auth')->group(function () {
+Route::post('/payment/process/{id}/{email}', [PayementController::class, 'processPayment'])->name('payment.process');
 Route::get('/payment/success/{id}', [PayementController::class, 'success'])->name('payment.success');
 Route::get('/payment/failure/{id}', [PayementController::class, 'failure'])->name('payment.failure');
 Route::get('/erreur-paiement', [PayementController::class, 'errorPayment'])->name('payment.error');
-
+Route::get('/payment/printrecu/{id}', [PayementController::class, 'printrecu'])->name('payment.printrecu');
+Route::get('/receipt/{id}/download', [PayementController::class, 'downloadrecu'])->name('payment.downloadrecu');
+Route::post('/receipt/{id}/send-email', [PayementController::class, 'sendmail'])->name('payment.sendmail');
+Route::get('/receiptByFacture/{id}', [PayementController::class, 'downloadrecuByFacture'])->name('payment.downloadrecuByFacture');
+// });
 
 Route::middleware('auth')->group(function () {
     // Route::get('/payment/success/{id}/{email}', [PayementController::class, 'success']);
     // Route::get('/payment/failure/{id}', [PayementController::class, 'failure']);
-    Route::get('/receipt/{recuId}', [PayementController::class, 'getReceipt']);
-    Route::get('/receipt/{recuId}/download', [PayementController::class, 'downloadReceipt'])->name('payment.downloadrecu');
-    Route::post('/receipt/{recuId}/send-email', [PayementController::class, 'sendReceiptByEmail'])->name('payment.sendmail');
+    Route::get('/receipt/{id}', [PayementController::class, 'getReceipt']);
     Route::get('/erreur-paiement/{id}', [PayementController::class, 'errorPayment'])->name('payment.erreur');
 });

@@ -5,9 +5,9 @@ namespace App\Mail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
-use App\Models\Facture;
-use App\Models\Confirm_order;
-use App\Models\E_order;
+use App\Models\epayment\Facture;
+use App\Models\epayment\ConfirmOrder;
+use App\Models\epayment\EOrder;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -24,14 +24,14 @@ class MailOrder extends Mailable
      *
      * @return void
      */
-    public function __construct($user,$recuid)
+    public function __construct($user,$id)
     {
        
         $this->userdata=$user;
         
-        $this->orderdata=Confirm_order::where ('recuId',$recuid)
+        $this->orderdata=ConfirmOrder::where ('id',$id)
                 ->first();
-        $this->eorderdata=E_order::where ('id',$this->orderdata->OrderNumber)
+        $this->eorderdata=EOrder::where ('id',$this->orderdata->OrderNumber)
                 ->first();
     
                 // Idem pour la facture

@@ -221,15 +221,17 @@
 </div>
 
 <div class="actions">
-  <a href="{{ route('payment.printrecu', $order->recuId) }}" class="btn btn-success">🖨 Imprimer le Reçu</a>
-  <a href="{{ route('payment.downloadrecu', $order->recuId) }}" class="btn btn-info">⬇ Télécharger en PDF</a>
+  <a href="{{ route('payment.printrecu', $order->id) }}" class="btn btn-success">🖨 Imprimer le Reçu</a>
+  <a href="{{ route('payment.downloadrecu', $order->id) }}" class="btn btn-info">⬇ Télécharger en PDF</a>
+  <a href="{{ env('FRONTEND_URL') . '/epayment/factures' }}" class="btn btn-primary">Retour à l'accueil</a>
+
   <button id="btnEmail" class="btn btn-warning">✉ Envoyer le Reçu par e-mail</button>
 </div>
 
 <!-- Modal personnalisé sans Bootstrap -->
 <div class="modal" id="emailModal">
   <div class="modal-content">
-    <form action="{{ route('payment.sendmail', $order->recuId) }}" method="POST">
+    <form action="{{ route('payment.sendmail', $order->id) }}" method="POST">
       @csrf
 
       <div class="modal-header">

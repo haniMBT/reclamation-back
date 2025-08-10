@@ -7,13 +7,14 @@
     "require": {
         "php": "^8.2",
         "anhskohbo/no-captcha": "^3.7",
-        "barryvdh/laravel-dompdf": "^2.0",
+        "barryvdh/laravel-dompdf": "^3.1",
         "codedge/laravel-fpdf": "^1.12",
         "defuse/php-encryption": "^2.4",
         "guzzlehttp/guzzle": "^7.2",
         "laravel/framework": "^11.45.1",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.8",
+        "mpdf/mpdf": "^8.2",
         "tymon/jwt-auth": "^2.0"
     },
     "require-dev": {
