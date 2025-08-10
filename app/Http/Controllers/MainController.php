@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Bagence;
+use App\Models\Direction;
 use App\Models\Profil;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -74,8 +74,88 @@ class MainController extends Controller
     {
 
         $user = $request->user()->toArray();
-        $data = [
+
+        $dr_id = $request->user()->Nom_DR;
+         $data = [
             'user' => $user,
+            'dr_id' => $dr_id,
+        ];
+
+        $privilegeProfil = DB::table('p_profils')->where('p_profils.code', Auth::user()->privilege)->first();
+        if ($privilegeProfil->limitation == 'G') {
+            $data['selectedDirection'] = null;
+            $data['dr_id'] = null;
+        }
+        if ($privilegeProfil->limitation == 'P' || $privilegeProfil->limitation == 'L') {
+            $data['selectedDirection'] = $dr_id;
+        }
+
+        $data['profile'] = Profil::where('code', $user['privilege'])->first();
+
+
+        return response()
+            ->json(
+                $data,
+                200
+            );
+    }
+
+
+    public function privileges(Request $request)
+    {
+
+        $privileges = $request->user()->scopePrivileges($request->volet);
+        $dr_id = $request->user()->DIRECTION;
+
+        if ($privileges->visibilite == 'G   ') {
+            $data['selectedDirection'] = null;
+            $data['dr_id'] = null;
+        }
+        if ($privileges->visibilite == 'P' || $privileges->visibilite == 'L') {
+            $data['selectedDirection'] = $dr_id;
+                $data["dr_id"] = $dr_id;
+        }
+
+        $data = [
+            'privileges' => $privileges,
+            'data' => $data,
+        ];
+        return response()
+            ->json(
+                $data,
+                200
+            );
+    }
+
+     public function allPrivileges()
+    {
+        $rec_privilege_insertion = Auth::user()->scopePrivileges('reporting');
+
+        $data = [
+            'rec_privilege_insertion' =>   $rec_privilege_insertion,
+        ];
+        return response()
+            ->json(
+                $data,
+                200
+            );
+    }
+    public function directions(Request $request)
+    {
+        $p = $request->user()->scopePrivileges($request->volet)?->visibilite;
+
+        if ($p == 'G')
+            $directions = Direction::groupby('DIRECTION')
+                ->select('DIRECTION')
+                ->get();
+        else
+            $directions = Direction::groupby('DIRECTION')
+                ->select('DIRECTION')
+                ->where('DIRECTION', $request->user()->Nom_DR)
+                ->get();
+
+        $data = [
+            'directions' => $directions ?? null,
         ];
         return response()
             ->json(

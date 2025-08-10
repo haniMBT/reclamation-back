@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\UserController;
 use App\Http\Controllers\MainController;
 use App\Http\Controllers\UserProfileController;
 use App\Http\Controllers\Proforma\ProformaController;
@@ -29,22 +30,25 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // Informations utilisateur
     Route::get('/user', [MainController::class, 'user']);
     Route::post('/logout', [MainController::class, 'logout']);
-    
+
+    // Gestion des utilisateur
+    Route::post('gu/utilisateur/recherche', [UserController::class, 'search'])->name('utilisateur.search');
+
     // Gestion du profil
     Route::get('/profile', [UserProfileController::class, 'getProfile']);
     Route::post('/profile/update', [UserProfileController::class, 'updateProfile']);
     Route::post('/profile/upload-photo', [UserProfileController::class, 'uploadPhoto']);
     Route::delete('/profile/delete-photo', [UserProfileController::class, 'deletePhoto']);
-    
+
     // Gestion des mots de passe
     Route::post('/profile/change-password', [UserProfileController::class, 'changePassword']);
     Route::post('/profile/request-password-change-code', [UserProfileController::class, 'requestPasswordChangeCode']);
     Route::post('/profile/change-password-with-code', [UserProfileController::class, 'changePasswordWithCode']);
-    
+
     // Validation en temps réel
     Route::post('/profile/validate-current-password', [UserProfileController::class, 'validateCurrentPassword']);
     Route::post('/profile/validate-email', [UserProfileController::class, 'validateEmail']);
-    
+
     // Route pour récupérer les privilèges (compatibilité avec l'existant)
     Route::post('/allPrivileges', function (Request $request) {
         return response()->json([
@@ -59,7 +63,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/factures', [App\Http\Controllers\epayment\FactureController::class, 'index']);
         Route::get('/factures/{id}', [App\Http\Controllers\epayment\FactureController::class, 'show']);
         Route::get('/facturesStats', [App\Http\Controllers\epayment\FactureController::class, 'stats']);
-        
+
         // Gestion des paiements
         // Route::post('/payment/process/{id}', [App\Http\Controllers\epayment\PaymentController::class, 'processPayment']);
         // Route::get('/payment/success/{id}', [App\Http\Controllers\epayment\PaymentController::class, 'success']);
