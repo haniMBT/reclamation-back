@@ -213,6 +213,13 @@ class ProformaController extends Controller
                 'date' => $request->date,
                 'c20p' => $request->c20p,
                 'c40p' => $request->c40p,
+                // Champs saisis/utilisés pour le calcul
+                'nbc20PV' => $nbc20P,
+                'nbc40PV' => $nbc40P,
+                'scan' => $scan,
+                'visite' => $visite,
+                'dateFin' => $dateFin,
+                // Résultat de calcul et historique
                 'facture' => $facture,
                 'historique' => $historique
             ];
