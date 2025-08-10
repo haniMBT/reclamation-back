@@ -8,7 +8,7 @@
 
 <body>
   <div>
-<img src="{{ asset('dist/img/img055.png') }}" style="width:600px; height:150px;">
+<img src="{{ public_path('dist/img/img055.png') }}" style="width:600px; height:150px;">
   </div>
 
   <h1 style="text-align: center;">
@@ -58,7 +58,7 @@
   <br>
   <p style="font-weight: bold;">
     En cas de problème de paiement, veuillez contacter la SATIM sur le numéro vert : 3020
-<img src="{{ asset('dist/img/satim.png') }}" style="float:right;" alt="SATIM">
+<img src="{{ public_path('dist/img/satim.png') }}" style="float:right;" alt="SATIM">
   </p>
 </body>
 </html>

@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\ServiceProvider;
-
+use Barryvdh\DomPDF\Facade\Pdf;
 return [
 
     /*
@@ -56,7 +56,7 @@ return [
     */
 
     'url' => env('APP_URL', 'http://localhost'),
-    
+
     'frontend_url' => env('APP_FRONTEND_URL', 'http://localhost:8080'),
 
     'asset_url' => env('ASSET_URL'),
@@ -170,7 +170,6 @@ return [
         // App\Providers\BroadcastServiceProvider::class,
         App\Providers\EventServiceProvider::class,
         App\Providers\RouteServiceProvider::class,
-
         Tymon\JWTAuth\Providers\LaravelServiceProvider::class,
     ])->toArray(),
 
@@ -187,6 +186,7 @@ return [
 
     'aliases' => Facade::defaultAliases()->merge([
         // 'Example' => App\Facades\Example::class,
+        'PDF' => Barryvdh\DomPDF\Facade\Pdf::class,
     ])->toArray(),
 
 ];
