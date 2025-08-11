@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\SecuriteController;
 use App\Http\Controllers\MainController;
 use App\Http\Controllers\UserProfileController;
 use App\Http\Controllers\Proforma\ProformaController;
@@ -32,7 +33,21 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/logout', [MainController::class, 'logout']);
 
     // Gestion des utilisateur
+    Route::get('/gu/utilisateur/delete/{Matricule}', [UserController::class, 'destroy'])->name('deleteUser');
+    Route::get('/gu/utilisateur/activation/{Matricule}', [UserController::class, 'activation'])->name('activation');
+    Route::patch('gu/utilisateur/{matricule}', [UserController::class, 'update'])->name('utilisateur.update');
     Route::post('gu/utilisateur/recherche', [UserController::class, 'search'])->name('utilisateur.search');
+    Route::post('gu/utilisateur', [UserController::class, 'store'])->name('utilisateur.store');
+    Route::get('gu/utilisateur/revoke-profile/{Matricule}', [UserController::class, 'revokeProfile'])->name('revokeProfile');
+
+    Route::get('/gu/securite/delete/{Matricule}', [SecuriteController::class, 'destroy'])->name('deleteUser');
+    Route::get('gu/securite/recherche/{search}', [SecuriteController::class, 'search'])->name('securite.search');
+    Route::get('gu/securite/recherche/{search}/{profil_code}', [SecuriteController::class, 'searchprivilege'])->name('searchprivilege.search');
+    Route::get('gu/securite', [SecuriteController::class, 'index'])->name('securite.index');
+    Route::post('gu/securite', [SecuriteController::class, 'store'])->name('securite.store');
+    Route::post('gu/securite/privilege/{profil_code}', [SecuriteController::class, 'privilegeIndex'])->name('privilegeIndex');
+    Route::post('gu/securite/privilege/update/{profil_code}', [SecuriteController::class, 'privilegeUpdate'])->name('privilegeUpdate');
+
 
     // Gestion du profil
     Route::get('/profile', [UserProfileController::class, 'getProfile']);

@@ -82,13 +82,13 @@ class MainController extends Controller
         ];
 
         $privilegeProfil = DB::table('p_profils')->where('p_profils.code', Auth::user()->privilege)->first();
-        if ($privilegeProfil->limitation == 'G') {
-            $data['selectedDirection'] = null;
-            $data['dr_id'] = null;
-        }
-        if ($privilegeProfil->limitation == 'P' || $privilegeProfil->limitation == 'L') {
-            $data['selectedDirection'] = $dr_id;
-        }
+        // if ($privilegeProfil->limitation == 'G') {
+        //     $data['selectedDirection'] = null;
+        //     $data['dr_id'] = null;
+        // }
+        // if ($privilegeProfil->limitation == 'P' || $privilegeProfil->limitation == 'L') {
+        //     $data['selectedDirection'] = $dr_id;
+        // }
 
         $data['profile'] = Profil::where('code', $user['privilege'])->first();
 
