@@ -11,4 +11,25 @@ class Privilege extends Model
 
     protected $table='p_privileges';
 
+     protected $fillable = [
+        'profil_code',
+        'module',
+        'volet',
+        'description',
+        'consultation',
+        'modification',
+        'insertion',
+        'suppression',
+        'visibilite',
+        'role',
+    ];
+
+    protected $casts  = [
+        'profil_code' => 'string',
+        'consultation' => 'boolean',
+        'insertion' => 'boolean',
+        'modification' => 'boolean',
+        'suppression' => 'boolean'
+    ];
+
 }

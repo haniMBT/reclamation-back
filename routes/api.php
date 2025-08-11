@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\VoletController;
 use App\Http\Controllers\SecuriteController;
 use App\Http\Controllers\MainController;
 use App\Http\Controllers\UserProfileController;
@@ -47,6 +48,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('gu/securite', [SecuriteController::class, 'store'])->name('securite.store');
     Route::post('gu/securite/privilege/{profil_code}', [SecuriteController::class, 'privilegeIndex'])->name('privilegeIndex');
     Route::post('gu/securite/privilege/update/{profil_code}', [SecuriteController::class, 'privilegeUpdate'])->name('privilegeUpdate');
+    Route::post('gu/securite/volets/update/{profil_code}', [SecuriteController::class, 'privilegeUpdate'])->name('privilegeUpdate');
+    Route::resource('volets', VoletController::class)->only('index', 'store', 'destroy');
 
 
     // Gestion du profil
