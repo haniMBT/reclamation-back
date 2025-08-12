@@ -14,15 +14,15 @@ class VoletController extends Controller
     public function index(Request $request)
     {
         $user = auth()->user();
-                // $privileges = Auth::user()->scopePrivileges('utilisateurs');
+        // $privileges = Auth::user()->scopePrivileges('utilisateurs');
 
         // if (!$privileges->consultation)
         //     return $this->sendErrorResponse('Vous n\'avez pas les privilèges pour consulter cette page', 403);
         $volets = VoletApp::query();
 
-        // if (isset($request->search))
-        //     $volets = $volets->where('volet', 'like', '%' . $request->search . '%')
-        //         ->orWhere('module', 'like', '%' . $request->search . '%');
+        if (isset($request->search))
+            $volets = $volets->where('volet', 'like', '%' . $request->search . '%')
+                ->orWhere('module', 'like', '%' . $request->search . '%');
 
         $perPage = $request->per_page;
         $page = $request->page;
@@ -66,7 +66,6 @@ class VoletController extends Controller
         }
         return response()->json($profil, '200');
 
-        // return $this->sendSuccessResponse($volet, 'Le volet à été ajouté');
     }
 
     public function destroy($id)
@@ -83,6 +82,6 @@ class VoletController extends Controller
                     return response()->json([
                             'success' => true,
                             'message' => 'Le volet à été supprimé'
-                        ], '200'); //
+                        ], '200');
     }
 }

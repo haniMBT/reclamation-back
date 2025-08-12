@@ -39,17 +39,14 @@ class UserController extends Controller
         $actif=$request->actif;
         $search=$request->search;
         if ($search <> 'null') {
-            // $utilisateurs =  $utilisateurs->where(function ($query) use ($search) {
-            //     $query->where('Matricule', 'like', '%' . $search . '%')
-            //     ->orwhere('Nom', 'like', '%' . $search . '%')
-            //     ->orwhere('Prénom', 'like', '%' . $search . '%')
-            //     ->orwhere('Busers.Nom_DR', 'like', '%' . $search . '%')
-            //     ->orwhere('code_ag', 'like', '%' . $search . '%')
-            //     ->orwhere('nom_ag', 'like', '%' . $search . '%')
-            //     ->orwhere('Busers.email', 'like', '%' . $search . '%')
-            //     ->orwhere('Busers.privilege', 'like', '%' . $search . '%')
-            //     ->orwhere('Bfonction.LibelleFct','like','%'.$search.'%');
-            // });
+            $utilisateurs =  $utilisateurs->where(function ($query) use ($search) {
+                $query->where('Matricule', 'like', '%' . $search . '%')
+                ->orwhere('Nom', 'like', '%' . $search . '%')
+                ->orwhere('Prenom', 'like', '%' . $search . '%')
+                ->orwhere('direction', 'like', '%' . $search . '%')
+                ->orwhere('Email', 'like', '%' . $search . '%')
+                ->orwhere('users.privilege', 'like', '%' . $search . '%');
+            });
         }
 
         // if ($privilege->visibilite == "G") {
@@ -60,12 +57,6 @@ class UserController extends Controller
         //     //     $utilisateurs = $utilisateurs->where("Busers.Structure", $request->str_id);
         //     // }
         // }
-        // // elseif ($privilege->visibilite == "R") {
-        // //     if ($request->str_id) {
-        // //         $utilisateurs = $utilisateurs->where("Busers.Structure", $request->str_id);
-        // //     }
-        // //     $utilisateurs = $utilisateurs->where("Busers.Nom_DR", Auth::user()->Nom_DR);
-        // // }
         //  elseif ($privilege->visibilite == "L") {
         //     $utilisateurs = $utilisateurs->where("user.direction", Auth::user()->direction);
 
@@ -94,7 +85,6 @@ class UserController extends Controller
      public function store(Request $request)
     {
 
-        // return response()->json(['request' =>$request->all()],525);
 
         $validator = Validator::make($request->all(), [
             // 'Matricule' => 'required|digits:5|unique:Busers,Matricule',
@@ -105,7 +95,6 @@ class UserController extends Controller
             'email' => 'email|required',
             // 'email' => $request->email ? 'email|nullable' : '',
             'password' => 'required',
-            // 'Fonction' => 'required|max:3|min:3'
         ]);
 
         if ($validator->fails()) {
@@ -116,8 +105,6 @@ class UserController extends Controller
         $data['Nom'] = $request->Nom;
         $data['Prenom'] = $request->Prenom;
         $data['direction'] = $request->Nom_DR;
-        // $data['Structure'] = $request->Structure;
-        // $data['Fonction'] = $request->Fonction;
         $data['email'] = $request->email;
         $data['password'] = Hash::make($request->password);
         DB::table('users')->insert($data);
@@ -128,20 +115,10 @@ class UserController extends Controller
     public function update(Request $request, $matricule)
     {
 
-        // $validator = Validator::make($request->all(), [
-        //     // 'email' => $request->email ? 'email|nullable' : '',
-        // ]);
-
-        // if ($validator->fails()) {
-        //     return response()->json(['errors' => $validator->errors()], 422);
-        // }
-
         $data = [
-            // 'Fonction' => $request->Fonction,
             'privilege' => $request->privilege,
             'email' => $request->email,
             'direction' => $request->direction,
-            // 'Structure' => $request->Structure
         ];
 
         if (isset($request->password))
@@ -244,7 +221,6 @@ class UserController extends Controller
 
     public function destroy($Matricule)
     {
-        // return response()->json(['errors' => $Matricule], 200);
         User::where('Matricule', $Matricule)->delete();
         return response()->json(['message' => 'L\'utilisateur a été supprimé.'], 200);
     }

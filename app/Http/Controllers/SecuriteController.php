@@ -17,16 +17,12 @@ class SecuriteController extends Controller
     {
         if ($p == 'G') {
             $securites = Profil::all();
-        // } elseif ($p == 'R') {
-        //     $securites = Profil::where('limitation', '!=', 'N')
-        //         ->get();
         } elseif ($p == 'L') {
             $securites = Profil::where('limitation', '!=', 'G')
                 ->get();
         } elseif ($p == 'P') {
             $securites = Profil::where('limitation', 'P')->get();
         }
-        // dd($securites);
         return $securites;
     }
 
@@ -97,9 +93,6 @@ class SecuriteController extends Controller
     public function searchprivilege($search, $profil_code)
     {
 
-        // return response()->json(['privileges' => $search], 200);
-
-
         $privileges = DB::table('p_privileges')->where('profil_code', $profil_code);
 
         if ($search <> 'null') {
@@ -124,8 +117,6 @@ class SecuriteController extends Controller
 
     public function store(Request $request)
     {
-
-        // return response()->json(['request' =>$request->all()],525);
 
         $validator = Validator::make($request->all(), [
             'code' => 'required|unique:p_profils,code',
@@ -198,10 +189,8 @@ class SecuriteController extends Controller
     public function privilegeUpdate(Request $request, $profil_code)
     {
 
-        // return response()->json(['message' => array_keys($request->id)], 200);
 
         foreach ($request->id as $key => $val) {
-            // return response()->json(['message' =>  intval($val['consultation'])], 200);
 
             DB::table('p_privileges')->whereId($key)->update([
                 'role' => $val['role'],
@@ -211,12 +200,6 @@ class SecuriteController extends Controller
                 'suppression' => $val['suppression'] == '1' ? true : false,
                 'visibilite' => $val['visibilite'],
             ]);
-
-            // $privileges = Privilege::where([
-            //     'id' => $key,
-            // ])->get();
-
-            // return response()->json(['message' => intval($val['modification'])], 200);
         }
 
         return response()->json(['message' => 'Les privilèges ont été modifiés'], 200);
