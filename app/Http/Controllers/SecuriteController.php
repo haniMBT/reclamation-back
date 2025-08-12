@@ -15,14 +15,13 @@ class SecuriteController extends Controller
 {
     public function getProfil($p)
     {
-        if ($p == 'N') {
+        if ($p == 'G') {
             $securites = Profil::all();
-        } elseif ($p == 'R') {
-            $securites = Profil::where('limitation', '!=', 'N')
-                ->get();
+        // } elseif ($p == 'R') {
+        //     $securites = Profil::where('limitation', '!=', 'N')
+        //         ->get();
         } elseif ($p == 'L') {
-            $securites = Profil::where('limitation', '!=', 'N')
-                ->where('limitation', '!=', 'R')
+            $securites = Profil::where('limitation', '!=', 'G')
                 ->get();
         } elseif ($p == 'P') {
             $securites = Profil::where('limitation', 'P')->get();
@@ -106,8 +105,8 @@ class SecuriteController extends Controller
         if ($search <> 'null') {
             $privileges =  $privileges->where(function ($query) use ($search) {
                 $query->where('profil_code', 'like', '%' . $search . '%')
-                    ->orwhere('module_app', 'like', '%' . $search . '%')
-                    ->orwhere('volet_app', 'like', '%' . $search . '%')
+                    ->orwhere('module', 'like', '%' . $search . '%')
+                    ->orwhere('volet', 'like', '%' . $search . '%')
                     ->orwhere('description', 'like', '%' . $search . '%')
                     ->orwhere('role', 'like', '%' . $search . '%')
                     ->orwhere('consultation', 'like', '%' . $search . '%')
