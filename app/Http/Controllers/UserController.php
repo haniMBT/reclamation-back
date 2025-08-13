@@ -104,7 +104,7 @@ class UserController extends Controller
         $data['Matricule'] = $request->Matricule;
         $data['Nom'] = $request->Nom;
         $data['Prenom'] = $request->Prenom;
-        $data['direction'] = $request->Nom_DR;
+        $data['direction'] = $request->direction;
         $data['email'] = $request->email;
         $data['password'] = Hash::make($request->password);
         DB::table('users')->insert($data);

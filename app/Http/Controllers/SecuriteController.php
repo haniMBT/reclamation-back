@@ -141,8 +141,8 @@ class SecuriteController extends Controller
         foreach($voletsApp as $voletApp){
                   $newPrivilege= new Privilege;
                   $newPrivilege->profil_code =$request->code;
-                  $newPrivilege->volet_app =$voletApp->volet;
-                  $newPrivilege->module_app =$voletApp->module;
+                  $newPrivilege->volet =$voletApp->volet;
+                  $newPrivilege->module =$voletApp->module;
                   $newPrivilege->description =$voletApp->description;
                   $newPrivilege->consultation =1;
                   $newPrivilege->insertion =0;
@@ -191,6 +191,10 @@ class SecuriteController extends Controller
 
 
         foreach ($request->id as $key => $val) {
+        // return response()->json(['message' => $val['visibilite']], 200);
+
+        // $role = json_decode($val['role'], true);
+        // $visibilite = json_decode($val['visibilite'], true);
 
             DB::table('p_privileges')->whereId($key)->update([
                 'role' => $val['role'],
