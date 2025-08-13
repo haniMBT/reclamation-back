@@ -82,13 +82,13 @@ class MainController extends Controller
         ];
 
         $privilegeProfil = DB::table('p_profils')->where('p_profils.code', Auth::user()->privilege)->first();
-        // if ($privilegeProfil->limitation == 'G') {
-        //     $data['selectedDirection'] = null;
-        //     $data['dr_id'] = null;
-        // }
-        // if ($privilegeProfil->limitation == 'P' || $privilegeProfil->limitation == 'L') {
-        //     $data['selectedDirection'] = $dr_id;
-        // }
+        if ($privilegeProfil->limitation == 'G') {
+            $data['selectedDirection'] = null;
+            $data['dr_id'] = null;
+        }
+        if ($privilegeProfil->limitation == 'P' || $privilegeProfil->limitation == 'L') {
+            $data['selectedDirection'] = $dr_id;
+        }
 
         $data['profile'] = Profil::where('code', $user['privilege'])->first();
 
@@ -129,11 +129,12 @@ class MainController extends Controller
 
      public function allPrivileges()
     {
-        $rec_privilege_insertion = Auth::user()->scopePrivileges('reporting');
+        $privilege_utilisateurs = Auth::user()->scopePrivileges('utilisateurs');
 
         $data = [
-            'rec_privilege_insertion' =>   $rec_privilege_insertion,
+            'privilege_utilisateurs' =>   $privilege_utilisateurs,
         ];
+
         return response()
             ->json(
                 $data,
@@ -151,7 +152,7 @@ class MainController extends Controller
         else
             $directions = Direction::groupby('DIRECTION')
                 ->select('DIRECTION')
-                ->where('DIRECTION', $request->user()->Nom_DR)
+                ->where('DIRECTION', $request->user()->direction)
                 ->get();
 
         $data = [

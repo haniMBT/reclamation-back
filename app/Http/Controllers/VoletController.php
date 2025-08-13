@@ -8,13 +8,15 @@ use App\Models\Privilege;
 use Illuminate\Http\Request;
 use App\Http\Resources\VoletResource;
 use App\Http\Requests\CreateVoletRequest;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class VoletController extends Controller
 {
     public function index(Request $request)
     {
         $user = auth()->user();
-        // $privileges = Auth::user()->scopePrivileges('utilisateurs');
+        $privileges = Auth::user()->scopePrivileges('volets');
 
         // if (!$privileges->consultation)
         //     return $this->sendErrorResponse('Vous n\'avez pas les privilèges pour consulter cette page', 403);
@@ -74,7 +76,7 @@ class VoletController extends Controller
         if (!$volet) {
             return $this->sendErrorResponse('Le volet n\'existe pas', 404);
         }
-        $privileges = Privilege::where('volet', $volet->volet)
+        Privilege::where('volet', $volet->volet)
             ->where('module', $volet->module)
             ->delete();
         $volet->delete();

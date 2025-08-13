@@ -20,30 +20,33 @@ class UserController extends Controller
         $drs = DB::table('direction')->select('DIRECTION')->groupBy('DIRECTION')->get();
 
         $profils = DB::table('p_profils');
-        // if ($privilege->visibilite == "L") {
-        //     $profils=$profils->where(function ($query)  {
-        //         $query->where('limitation','L')
-        //         ->orwhere('limitation','P');
-        //     });
-        // } elseif ($privilege->visibilite == "P") {
-        //     $profils=$profils->where('limitation','P');
-        // }
+        if($privilege){
+              if ($privilege->visibilite == "L") {
+            $profils=$profils->where(function ($query)  {
+                $query->where('limitation','L')
+                ->orwhere('limitation','P');
+            });
+            } elseif ($privilege->visibilite == "P") {
+                $profils=$profils->where('limitation','P');
+            }
+        }
+
         $profils=$profils->get();
 
-        $utilisateurs = User::query();
-        // leftJoin('direction', function ($join) {
-        //     $join->on('direction.code_ag', '=', 'Busers.Structure');
-        // })
-        // ->leftJoin('Bfonction', 'Bfonction.CodeFnt', '=', 'Busers.Fonction');
+        $utilisateurs = User::leftJoin('direction', function ($join) {
+            $join->on('direction.DIRECTION', '=', 'users.direction');
+        })
+        // ->leftJoin('Bfonction', 'Bfonction.CodeFnt', '=', 'Busers.Fonction')
+        ;
 
-        $actif=$request->actif;
+        // $actif=$request->actif;
         $search=$request->search;
         if ($search <> 'null') {
             $utilisateurs =  $utilisateurs->where(function ($query) use ($search) {
                 $query->where('Matricule', 'like', '%' . $search . '%')
                 ->orwhere('Nom', 'like', '%' . $search . '%')
                 ->orwhere('Prenom', 'like', '%' . $search . '%')
-                ->orwhere('direction', 'like', '%' . $search . '%')
+                ->orwhere('users.direction', 'like', '%' . $search . '%')
                 ->orwhere('Email', 'like', '%' . $search . '%')
                 ->orwhere('users.privilege', 'like', '%' . $search . '%');
             });
@@ -53,16 +56,14 @@ class UserController extends Controller
         //     if ($request->dr_id) {
         //         $utilisateurs = $utilisateurs->where("user.direction", $request->dr_id);
         //     }
-        //     // if ($request->str_id) {
-        //     //     $utilisateurs = $utilisateurs->where("Busers.Structure", $request->str_id);
-        //     // }
         // }
-        //  elseif ($privilege->visibilite == "L") {
-        //     $utilisateurs = $utilisateurs->where("user.direction", Auth::user()->direction);
+         elseif ($privilege->visibilite == "L") {
+            $utilisateurs = $utilisateurs->where("users.direction", Auth::user()->direction);
 
-        // } elseif ($privilege->visibilite == "P") {
-        //     $utilisateurs = $utilisateurs->where('Busers.id','=', Auth::user()->id) ;
-        // }
+        } elseif ($privilege->visibilite == "P") {
+            $utilisateurs = $utilisateurs->where('users.Matricule','=', Auth::user()->Matricule) ;
+        }
+
         // if ($request->actif=='0') {
         //     $utilisateurs = $utilisateurs->where("Actif",0);
         // }elseif($request->actif=='1'){

@@ -28,20 +28,13 @@ class SecuriteController extends Controller
 
     public function index()
     {
-        $privilege = Auth::user()->scopePrivileges('securites');
+        $privilege = Auth::user()->scopePrivileges('privileges');
 
         $profil_privilege = Profil::where('code', Auth::user()->privilege)->first();
         // $auth= Auth::user();
-        // $privilege = $auth->scopePrivileges('securites');
-        $profils = DB::table('p_profils')
-        ->whereNot('libelle', 'like', '%' . 'RDEX' . '%');
-        if ($privilege->visibilite == "R") {
-            $profils=$profils->where(function ($query)  {
-                $query->where('limitation','R')
-                ->orwhere('limitation','L')
-                ->orwhere('limitation','P');
-            });
-        } elseif ($privilege->visibilite == "L") {
+        // $privilege = $auth->scopePrivileges('privileges');
+        $profils = DB::table('p_profils');
+        if ($privilege->visibilite == "L") {
             $profils=$profils->where(function ($query)  {
                 $query->where('limitation','L')
                 ->orwhere('limitation','P');
@@ -58,8 +51,7 @@ class SecuriteController extends Controller
 
     public function search($search)
     {
-        // return response()->json(['profils' => '33333'], 200);
-        // $privilege = Auth::user()->scopePrivileges('securites');
+        $privilege = Auth::user()->scopePrivileges('privileges');
 
         $profils = DB::table('p_profils')
         ->whereNot('libelle', 'like', '%' . 'RDEX' . '%');
@@ -74,14 +66,14 @@ class SecuriteController extends Controller
                 ;
             });
         }
-        // if ($privilege->visibilite == "L") {
-        //     $profils=$profils->where(function ($query)  {
-        //         $query->where('limitation','L')
-        //         ->orwhere('limitation','P');
-        //     });
-        // } elseif ($privilege->visibilite == "P") {
-        //     $profils=$profils->where('limitation','P');
-        // }
+        if ($privilege->visibilite == "L") {
+            $profils=$profils->where(function ($query)  {
+                $query->where('limitation','L')
+                ->orwhere('limitation','P');
+            });
+        } elseif ($privilege->visibilite == "P") {
+            $profils=$profils->where('limitation','P');
+        }
         $profils=$profils->get();
 
 
@@ -191,10 +183,6 @@ class SecuriteController extends Controller
 
 
         foreach ($request->id as $key => $val) {
-        // return response()->json(['message' => $val['visibilite']], 200);
-
-        // $role = json_decode($val['role'], true);
-        // $visibilite = json_decode($val['visibilite'], true);
 
             DB::table('p_privileges')->whereId($key)->update([
                 'role' => $val['role'],
