@@ -46,7 +46,7 @@ class SecuriteController extends Controller
         $fonctions = DB::table('Bfonction')->orderBy('LibelleFct', 'asc')->get();
         // $securites=$this->getProfil($p);
 
-        return response()->json(['profil_privilege' => $profil_privilege, 'profils' => $profils, 'fonctions' => $fonctions], 200);
+        return response()->json(['profil_privilege' => $profil_privilege, 'profils' => $profils, 'fonctions' => $fonctions, 'privilege' => $privilege], 200);
     }
 
     public function search($search)
@@ -77,7 +77,7 @@ class SecuriteController extends Controller
         $profils=$profils->get();
 
 
-        return response()->json(['profils' => $profils], 200);
+        return response()->json(['profils' => $profils, 'privilege' => $privilege], 200);
 
 
     }

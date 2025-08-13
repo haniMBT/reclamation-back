@@ -78,7 +78,7 @@ class UserController extends Controller
         ->get();
         // $fonctions = DB::table('Bfonction')->orderBy('LibelleFct', 'asc')->get();
 
-        return response()->json(['utilisateurs' => $utilisateurs, 'profils' => $profils,'drs' => $drs,
+        return response()->json(['utilisateurs' => $utilisateurs, 'profils' => $profils,'drs' => $drs,'privilege' => $privilege,
         //   'fonctions' => $fonctions, 'str_id' => $request->str_id, 'dr_id' => $request->dr_id
         ], 200);
     }

@@ -16,7 +16,7 @@ class VoletController extends Controller
     public function index(Request $request)
     {
         $user = auth()->user();
-        $privileges = Auth::user()->scopePrivileges('volets');
+        $privilege = Auth::user()->scopePrivileges('volets');
 
         // if (!$privileges->consultation)
         //     return $this->sendErrorResponse('Vous n\'avez pas les privilèges pour consulter cette page', 403);
@@ -36,6 +36,7 @@ class VoletController extends Controller
         return $this->sendSuccessResponse(
             [
                 'volets' => VoletResource::collection($volets),
+                'privilege' => $privilege,
                 'pagination' => [
                     'per_page' => intval($perPage),
                     'page' => $currentPage,
