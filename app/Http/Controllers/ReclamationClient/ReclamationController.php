@@ -201,4 +201,343 @@ class ReclamationController extends Controller
 
         return $content;
     }
+
+    /**
+     * Récupérer la liste des réclamations de l'utilisateur connecté avec pagination.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function index(Request $request): JsonResponse
+    {
+        try {
+            // Validation des paramètres de pagination
+            $validatedData = $request->validate([
+                'page' => 'nullable|integer|min:1',
+                'per_page' => 'nullable|integer|min:1|max:50',
+            ], [
+                'page.integer' => 'Le numéro de page doit être un nombre entier.',
+                'page.min' => 'Le numéro de page doit être supérieur à 0.',
+                'per_page.integer' => 'Le nombre d\'éléments par page doit être un nombre entier.',
+                'per_page.min' => 'Le nombre d\'éléments par page doit être supérieur à 0.',
+                'per_page.max' => 'Le nombre d\'éléments par page ne peut pas dépasser 50.',
+            ]);
+
+            // Paramètres de pagination
+            $perPage = $validatedData['per_page'] ?? 10;
+            $page = $validatedData['page'] ?? 1;
+
+            // Récupérer les réclamations avec pagination
+            $reclamations = Reclamation::where('user_id', Auth::id())
+                ->withCount('fichiers') // Compter les fichiers joints
+                ->orderBy('date_creation', 'desc')
+                ->paginate($perPage, ['*'], 'page', $page);
+
+            // Préparer les données pour la réponse
+            $data = $reclamations->getCollection()->map(function ($reclamation) {
+                return [
+                    'id' => $reclamation->id,
+                    'objet' => $reclamation->objet,
+                    'statut' => $reclamation->statut,
+                    'statut_formatte' => $reclamation->statut_formatte,
+                    'date_creation' => $reclamation->date_creation,
+                    'date_traitement' => $reclamation->date_traitement,
+                    'fichiers_count' => $reclamation->fichiers_count,
+                ];
+            });
+
+            // Informations de pagination
+            $paginationData = [
+                'current_page' => $reclamations->currentPage(),
+                'per_page' => $reclamations->perPage(),
+                'total' => $reclamations->total(),
+                'last_page' => $reclamations->lastPage(),
+                'from' => $reclamations->firstItem(),
+                'to' => $reclamations->lastItem(),
+                'has_more_pages' => $reclamations->hasMorePages(),
+            ];
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Réclamations récupérées avec succès.',
+                'data' => [
+                    'data' => $data,
+                    'current_page' => $paginationData['current_page'],
+                    'per_page' => $paginationData['per_page'],
+                    'total' => $paginationData['total'],
+                    'last_page' => $paginationData['last_page'],
+                    'from' => $paginationData['from'],
+                    'to' => $paginationData['to'],
+                    'has_more_pages' => $paginationData['has_more_pages'],
+                ]
+            ], 200);
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur de validation des paramètres.',
+                'errors' => $e->errors()
+            ], 422);
+
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de la récupération des réclamations', [
+                'error' => $e->getMessage(),
+                'user_id' => Auth::id()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Une erreur inattendue s\'est produite. Veuillez réessayer plus tard.',
+            ], 500);
+        }
+    }
+
+    /**
+     * Récupérer toutes les réclamations avec pagination et filtres.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function indexAll(Request $request): JsonResponse
+    {
+        try {
+            // Validation des paramètres de requête
+            $validatedData = $request->validate([
+                'page' => 'nullable|integer|min:1',
+                'search' => 'nullable|string|max:255',
+                'status' => 'nullable|string|in:nouvelle,en_cours,traitee,fermee',
+                'date_from' => 'nullable|date',
+                'date_to' => 'nullable|date|after_or_equal:date_from',
+            ], [
+                'page.integer' => 'Le numéro de page doit être un nombre entier.',
+                'page.min' => 'Le numéro de page doit être supérieur à 0.',
+                'search.string' => 'La recherche doit être une chaîne de caractères.',
+                'search.max' => 'La recherche ne peut pas dépasser 255 caractères.',
+                'status.in' => 'Le statut sélectionné n\'est pas valide.',
+                'date_from.date' => 'La date de début doit être une date valide.',
+                'date_to.date' => 'La date de fin doit être une date valide.',
+                'date_to.after_or_equal' => 'La date de fin doit être postérieure ou égale à la date de début.',
+            ]);
+
+            // Paramètres par défaut - pagination fixe à 10 éléments
+            $perPage = 10; // Fixé à 10 éléments par page
+            $page = $validatedData['page'] ?? 1;
+
+            // Construire la requête de base
+            $query = Reclamation::where('user_id', Auth::id())
+                ->with(['fichiers' => function ($query) {
+                    $query->select('reclamation_id');
+                }])
+                ->withCount('fichiers');
+
+            // Appliquer les filtres de recherche
+            if (!empty($validatedData['search'])) {
+                $searchTerm = $validatedData['search'];
+                $query->where(function ($q) use ($searchTerm) {
+                    $q->where('objet', 'like', "%{$searchTerm}%")
+                      ->orWhere('contenu', 'like', "%{$searchTerm}%");
+                });
+            }
+
+            // Filtre par statut
+            if (!empty($validatedData['status'])) {
+                $query->where('statut', $validatedData['status']);
+            }
+
+            // Filtres par date
+            if (!empty($validatedData['date_from'])) {
+                $query->where('date_creation', '>=', $validatedData['date_from']);
+            }
+
+            if (!empty($validatedData['date_to'])) {
+                $query->where('date_creation', '<=', $validatedData['date_to'] . ' 23:59:59');
+            }
+
+            // Tri et pagination
+            $reclamations = $query->orderBy('date_creation', 'desc')
+                ->paginate($perPage, ['*'], 'page', $page);
+
+            // Préparer les données pour la réponse
+            $data = $reclamations->getCollection()->map(function ($reclamation) {
+                return [
+                    'id' => $reclamation->id,
+                    'objet' => $reclamation->objet,
+                    'contenu' => $reclamation->contenu,
+                    'statut' => $reclamation->statut,
+                    'statut_formatte' => $reclamation->statut_formatte,
+                    'date_creation' => $reclamation->date_creation,
+                    'date_traitement' => $reclamation->date_traitement,
+                    'fichiers_count' => $reclamation->fichiers_count,
+                ];
+            });
+
+            // Informations de pagination
+            $paginationData = [
+                'current_page' => $reclamations->currentPage(),
+                'per_page' => $reclamations->perPage(),
+                'total' => $reclamations->total(),
+                'last_page' => $reclamations->lastPage(),
+                'from' => $reclamations->firstItem(),
+                'to' => $reclamations->lastItem(),
+                'has_more_pages' => $reclamations->hasMorePages(),
+            ];
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Réclamations récupérées avec succès.',
+                'data' => [
+                    'data' => $data,
+                    'current_page' => $paginationData['current_page'],
+                    'per_page' => $paginationData['per_page'],
+                    'total' => $paginationData['total'],
+                    'last_page' => $paginationData['last_page'],
+                    'from' => $paginationData['from'],
+                    'to' => $paginationData['to'],
+                    'has_more_pages' => $paginationData['has_more_pages'],
+                ]
+            ], 200);
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur de validation des paramètres.',
+                'errors' => $e->errors()
+            ], 422);
+
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de la récupération des réclamations avec filtres', [
+                'error' => $e->getMessage(),
+                'user_id' => Auth::id(),
+                'request_data' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Une erreur inattendue s\'est produite. Veuillez réessayer plus tard.',
+            ], 500);
+        }
+    }
+
+    /**
+     * Afficher les détails d'une réclamation spécifique.
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function show(int $id): JsonResponse
+    {
+        try {
+            // Récupérer la réclamation avec ses relations
+            $reclamation = Reclamation::with(['fichiers', 'utilisateur', 'traitePar'])
+                ->where('user_id', Auth::id()) // Sécurité : l'utilisateur ne peut voir que ses propres réclamations
+                ->findOrFail($id);
+
+            // Préparer les données pour la réponse
+            $data = [
+                'id' => $reclamation->id,
+                'objet' => $reclamation->objet,
+                'contenu' => $reclamation->contenu,
+                'statut' => $reclamation->statut,
+                'statut_formatte' => $reclamation->statut_formatte,
+                'date_creation' => $reclamation->date_creation,
+                'date_traitement' => $reclamation->date_traitement,
+                'reponse' => $reclamation->reponse,
+                'traite_par' => $reclamation->traite_par,
+                'traite_par_name' => $reclamation->traitePar ? $reclamation->traitePar->name : null,
+                'utilisateur' => [
+                    'id' => $reclamation->utilisateur->id,
+                    'name' => $reclamation->utilisateur->name,
+                    'email' => $reclamation->utilisateur->email,
+                ],
+                'fichiers' => $reclamation->fichiers->map(function ($fichier) {
+                    return [
+                        'id' => $fichier->id,
+                        'nom_original' => $fichier->nom_original,
+                        'nom_stockage' => $fichier->nom_stockage,
+                        'chemin' => $fichier->chemin,
+                        'taille' => $fichier->taille,
+                        'type_mime' => $fichier->type_mime,
+                        'date_upload' => $fichier->date_upload,
+                    ];
+                }),
+            ];
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Réclamation récupérée avec succès.',
+                'data' => $data
+            ], 200);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            Log::warning('Tentative d\'accès à une réclamation inexistante', [
+                'reclamation_id' => $id,
+                'user_id' => Auth::id()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Réclamation non trouvée.',
+            ], 404);
+
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de la récupération de la réclamation', [
+                'error' => $e->getMessage(),
+                'reclamation_id' => $id,
+                'user_id' => Auth::id()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Une erreur inattendue s\'est produite. Veuillez réessayer plus tard.',
+            ], 500);
+        }
+    }
+
+    /**
+     * Télécharger un fichier joint à une réclamation.
+     *
+     * @param int $reclamationId
+     * @param int $fichierId
+     * @return \Symfony\Component\HttpFoundation\StreamedResponse
+     */
+    public function downloadFile(int $reclamationId, int $fichierId)
+    {
+        try {
+            // Vérifier que la réclamation appartient à l'utilisateur connecté
+            $reclamation = Reclamation::where('user_id', Auth::id())
+                ->findOrFail($reclamationId);
+
+            // Récupérer le fichier
+            $fichier = FichierClient::where('reclamation_id', $reclamationId)
+                ->findOrFail($fichierId);
+
+            // Vérifier que le fichier existe sur le disque
+            if (!Storage::disk('public')->exists(str_replace('public/', '', $fichier->chemin))) {
+                throw new \Exception('Fichier non trouvé sur le serveur');
+            }
+
+            // Retourner le fichier pour téléchargement
+            $path = str_replace('public/', '', $fichier->chemin);
+            return response()->download(storage_path('app/public/' . $path), $fichier->nom_original);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            Log::warning('Tentative de téléchargement d\'un fichier inexistant', [
+                'reclamation_id' => $reclamationId,
+                'fichier_id' => $fichierId,
+                'user_id' => Auth::id()
+            ]);
+
+            abort(404, 'Fichier non trouvé');
+
+        } catch (\Exception $e) {
+            Log::error('Erreur lors du téléchargement du fichier', [
+                'error' => $e->getMessage(),
+                'reclamation_id' => $reclamationId,
+                'fichier_id' => $fichierId,
+                'user_id' => Auth::id()
+            ]);
+
+            abort(500, 'Erreur lors du téléchargement');
+        }
+    }
 }
