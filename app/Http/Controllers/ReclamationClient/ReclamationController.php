@@ -147,20 +147,6 @@ class ReclamationController extends Controller
      * @param \Illuminate\Http\UploadedFile $file
      * @return string
      */
-    // private function generateUniqueFileName($file): string
-    // {
-    //     $extension = $file->getClientOriginalExtension();
-    //     $nomSansExtension = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-
-    //     // Nettoyer le nom du fichier
-    //     $nomSansExtension = Str::slug($nomSansExtension, '_');
-
-    //     // Ajouter timestamp et hash unique
-    //     $timestamp = time();
-    //     $hash = Str::random(8);
-
-    //     return $nomSansExtension . '_' . $timestamp . '_' . $hash . '.' . $extension;
-    // }
 
     private function generateUniqueFileName($file, $directory = 'reclamations'): string
     {
@@ -202,6 +188,116 @@ class ReclamationController extends Controller
         return $content;
     }
 
+        public function update(Request $request, $id): JsonResponse
+    {
+
+        // return response()->json([
+        //             'success' => $request->all(),
+        //         ], 400);
+        try {
+            // Validation
+            $validatedData = $request->validate([
+                'objet' => 'required|string|max:255',
+                'contenu' => 'required|string',
+                'fichiers' => 'nullable|array',
+                'fichiers.*' => 'file|max:10240|mimes:jpg,jpeg,png,gif,pdf,doc,docx,txt',
+                'fichiers_a_supprimer' => 'nullable|array',
+                'fichiers_a_supprimer.*' => 'integer|exists:fichiers_clients,id'
+            ], [
+                'objet.required' => 'L\'objet de la réclamation est requis.',
+                'objet.max' => 'L\'objet ne peut pas dépasser 255 caractères.',
+                'contenu.required' => 'Le contenu de la réclamation est requis.',
+                'fichiers.*.file' => 'Le fichier doit être un fichier valide.',
+                'fichiers.*.max' => 'La taille du fichier ne peut pas dépasser 10 MB.',
+                'fichiers.*.mimes' => 'Le format du fichier n\'est pas autorisé.',
+                'fichiers_a_supprimer.*.exists' => 'Le fichier à supprimer est introuvable.'
+            ]);
+
+            // Nettoyage du contenu
+            $contenu = $this->cleanHtmlContent($validatedData['contenu']);
+            if (empty($contenu)) {
+                throw ValidationException::withMessages([
+                    'contenu' => ['Le contenu de la réclamation ne peut pas être vide.']
+                ]);
+            }
+
+            DB::beginTransaction();
+
+            try {
+                // Récupérer la réclamation
+                $reclamation = Reclamation::findOrFail($id);
+
+                // Vérification d'autorisation
+                if ($reclamation->user_id !== Auth::id()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Vous n\'êtes pas autorisé à modifier cette réclamation.'
+                    ], 403);
+                }
+
+                // Mise à jour
+                $reclamation->update([
+                    'objet' => $validatedData['objet'],
+                    'contenu' => $validatedData['contenu'], // ou $contenu si tu veux le texte nettoyé
+                    'updated_at' => now(),
+                ]);
+
+                // Suppression des fichiers si demandé
+                if (!empty($validatedData['fichiers_a_supprimer'])) {
+                    $fichiers = FichierClient::whereIn('id', $validatedData['fichiers_a_supprimer'])
+                        ->where('reclamation_id', $reclamation->id)
+                        ->get();
+
+                    foreach ($fichiers as $fichier) {
+                        Storage::disk('public')->delete(str_replace('public/', '', $fichier->chemin));
+                        $fichier->delete();
+                    }
+                }
+
+                // Ajout de nouveaux fichiers
+                if ($request->hasFile('fichiers')) {
+                    $this->handleFileUploads($request->file('fichiers'), $reclamation->id);
+                }
+
+                DB::commit();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Réclamation mise à jour avec succès.',
+                    'data' => [
+                        'reclamation_id' => $reclamation->id,
+                        'objet' => $reclamation->objet,
+                        'statut' => $reclamation->statut_formatte,
+                        // 'date_modification' => $reclamation->date_modification->format('d/m/Y H:i'),
+                    ]
+                ], 200);
+
+            } catch (\Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur de validation.',
+                'errors' => $e->errors()
+            ], 422);
+
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de la mise à jour de la réclamation', [
+                'error' => $e->getMessage(),
+                'user_id' => Auth::id(),
+                'request_data' => $request->except(['fichiers'])
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Une erreur inattendue s\'est produite. Veuillez réessayer plus tard.',
+            ], 500);
+        }
+    }
+
     /**
      * Récupérer la liste des réclamations de l'utilisateur connecté avec pagination.
      *
@@ -226,6 +322,44 @@ class ReclamationController extends Controller
             // Paramètres de pagination
             $perPage = $validatedData['per_page'] ?? 10;
             $page = $validatedData['page'] ?? 1;
+
+            if ($request->has('id_reclamation')) {
+                // Récupérer la réclamation avec ses relations
+                $reclamation = Reclamation::with(['fichiers', 'utilisateur', 'traitePar'])
+                    // ->where('user_id', Auth::id()) // Sécurité : l'utilisateur ne peut voir que ses propres réclamations
+                    ->findOrFail($request->id_reclamation);
+
+                    // Préparer les données pour la réponse
+                $data = [
+                    'id' => $reclamation->id,
+                    'objet' => $reclamation->objet,
+                    'contenu' => $reclamation->contenu,
+                    'statut' => $reclamation->statut,
+                    'statut_formatte' => $reclamation->statut_formatte,
+                    'date_creation' => $reclamation->date_creation,
+                    'date_traitement' => $reclamation->date_traitement,
+                    'reponse' => $reclamation->reponse,
+                    'traite_par' => $reclamation->traite_par,
+                    'traite_par_name' => $reclamation->traitePar ? $reclamation->traitePar->name : null,
+                    'utilisateur' => [
+                        'id' => $reclamation->utilisateur->id,
+                        'name' => $reclamation->utilisateur->name,
+                        'email' => $reclamation->utilisateur->email,
+                    ],
+                    'fichiers' => $reclamation->fichiers->map(function ($fichier) {
+                        return [
+                            'id' => $fichier->id,
+                            'nom_original' => $fichier->nom_original,
+                            'nom_stockage' => $fichier->nom_stockage,
+                            'chemin' => $fichier->chemin,
+                            'taille' => $fichier->taille,
+                            'type_mime' => $fichier->type_mime,
+                            'date_upload' => $fichier->date_upload,
+                        ];
+                    }),
+                ];
+                $reclamation = $data;
+            }
 
             // Récupérer les réclamations avec pagination
             $reclamations = Reclamation::where('user_id', Auth::id())
@@ -269,6 +403,8 @@ class ReclamationController extends Controller
                     'from' => $paginationData['from'],
                     'to' => $paginationData['to'],
                     'has_more_pages' => $paginationData['has_more_pages'],
+                    'reclamation' => $reclamation ?? null, // Inclure la réclamation si elle est demandée
+                    'tous' => $request->all()
                 ]
             ], 200);
 
@@ -519,6 +655,41 @@ class ReclamationController extends Controller
             // Retourner le fichier pour téléchargement
             $path = str_replace('public/', '', $fichier->chemin);
             return response()->download(storage_path('app/public/' . $path), $fichier->nom_original);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            Log::warning('Tentative de téléchargement d\'un fichier inexistant', [
+                'reclamation_id' => $reclamationId,
+                'fichier_id' => $fichierId,
+                'user_id' => Auth::id()
+            ]);
+
+            abort(404, 'Fichier non trouvé');
+
+        } catch (\Exception $e) {
+            Log::error('Erreur lors du téléchargement du fichier', [
+                'error' => $e->getMessage(),
+                'reclamation_id' => $reclamationId,
+                'fichier_id' => $fichierId,
+                'user_id' => Auth::id()
+            ]);
+
+            abort(500, 'Erreur lors du téléchargement');
+        }
+    }
+    public function deleteFile(int $reclamationId, int $fichierId)
+    {
+        try {
+             // Récupérer le fichier
+            $fichier = FichierClient::where('reclamation_id', $reclamationId)
+                ->findOrFail($fichierId);
+
+            Storage::disk('public')->delete(str_replace('public/', '', $fichier->chemin));
+            $fichier->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Fichier supprimé avec succès.'
+            ], 200);
 
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             Log::warning('Tentative de téléchargement d\'un fichier inexistant', [
