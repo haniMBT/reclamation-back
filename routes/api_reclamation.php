@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ReclamationClient\ReclamationController;
+use App\Http\Controllers\ReclamationClient\NatureController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -21,4 +22,10 @@ Route::middleware(['auth:sanctum', 'check.token.expiration'])->group(function ()
     Route::get('/reclamation/{id}', [ReclamationController::class, 'show'])->name('reclamation.show');
     Route::get('/reclamation/{reclamationId}/fichier/{fichierId}/download', [ReclamationController::class, 'downloadFile'])->name('reclamation.download');
     Route::get('/reclamation/{reclamationId}/fichier/{fichierId}/delete', [ReclamationController::class, 'deleteFile'])->name('reclamation.delete');
+    
+    // Routes pour la gestion des natures et sous-natures
+    Route::get('/nature', [NatureController::class, 'index'])->name('nature.index');
+    Route::post('/nature', [NatureController::class, 'store'])->name('nature.store');
+    Route::put('/nature/{id}', [NatureController::class, 'update'])->name('nature.update');
+    Route::delete('/nature/{id}', [NatureController::class, 'destroy'])->name('nature.destroy');
 });
