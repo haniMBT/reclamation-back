@@ -5,6 +5,9 @@ namespace App\Http\Controllers\ReclamationClient;
 use App\Http\Controllers\Controller;
 use App\Models\ReclamationClient\Reclamation;
 use App\Models\ReclamationClient\FichierClient;
+use App\Models\ReclamationClient\ReclamationNatureSousNature;
+use App\Models\ReclamationClient\Nature;
+use App\Models\ReclamationClient\SousNature;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -29,12 +32,22 @@ class ReclamationController extends Controller
             $validatedData = $request->validate([
                 'objet' => 'required|string|max:255',
                 'contenu' => 'required|string',
+                'consequences' => 'nullable|string',
+                'action_attendue' => 'nullable|string',
+                'natures' => 'required|array|min:1',
+                'natures.*' => 'required|integer|exists:nature,NATID',
+                'sous_natures' => 'nullable|array',
+                'sous_natures.*' => 'nullable|integer|exists:sous_nature,SOUSID',
                 'fichiers' => 'nullable|array',
                 'fichiers.*' => 'file|max:10240|mimes:jpg,jpeg,png,gif,pdf,doc,docx,txt', // 10MB max
             ], [
                 'objet.required' => 'L\'objet de la réclamation est requis.',
                 'objet.max' => 'L\'objet ne peut pas dépasser 255 caractères.',
                 'contenu.required' => 'Le contenu de la réclamation est requis.',
+                'natures.required' => 'Au moins un type de réclamation doit être sélectionné.',
+                'natures.min' => 'Au moins un type de réclamation doit être sélectionné.',
+                'natures.*.exists' => 'Le type de réclamation sélectionné n\'existe pas.',
+                'sous_natures.*.exists' => 'Le sous-type de réclamation sélectionné n\'existe pas.',
                 'fichiers.*.file' => 'Le fichier doit être un fichier valide.',
                 'fichiers.*.max' => 'La taille du fichier ne peut pas dépasser 10 MB.',
                 'fichiers.*.mimes' => 'Le format du fichier n\'est pas autorisé.',
@@ -57,11 +70,17 @@ class ReclamationController extends Controller
                 $reclamation = Reclamation::create([
                     'objet' => $validatedData['objet'],
                     'contenu' => $validatedData['contenu'],
-                    // 'contenu' => $contenu,
+                    'consequences' => $validatedData['consequences'] ?? null,
+                    'action_attendue' => $validatedData['action_attendue'] ?? null,
                     'user_id' => Auth::id(),
                     'statut' => 'nouvelle',
                     'date_creation' => now(),
                 ]);
+
+                // Sauvegarder les associations nature/sous-nature
+              $this->saveNatureSousNatureAssociations($reclamation->id, $validatedData['natures'], $validatedData['sous_natures'] ?? []);
+
+
 
                 // Gérer les fichiers joints s'ils existent
                 if ($request->hasFile('fichiers')) {
@@ -191,9 +210,6 @@ class ReclamationController extends Controller
         public function update(Request $request, $id): JsonResponse
     {
 
-        // return response()->json([
-        //             'success' => $request->all(),
-        //         ], 400);
         try {
             // Validation
             $validatedData = $request->validate([
@@ -380,6 +396,22 @@ class ReclamationController extends Controller
                 ];
             });
 
+            // Récupérer toutes les natures avec leurs sous-natures
+            $natures = Nature::with('sousNatures')->orderBy('ORDRE')->get()->map(function ($nature) {
+                return [
+                    'id' => $nature->NATID,
+                    'libelle' => $nature->NATLIB,
+                    'ordre' => $nature->ORDRE,
+                    'sous_natures' => $nature->sousNatures->map(function ($sousNature) {
+                        return [
+                            'id' => $sousNature->SOUSID,
+                            'libelle' => $sousNature->SOUSLIB,
+                            'nature_id' => $sousNature->NATID,
+                        ];
+                    })
+                ];
+            });
+
             // Informations de pagination
             $paginationData = [
                 'current_page' => $reclamations->currentPage(),
@@ -404,6 +436,7 @@ class ReclamationController extends Controller
                     'to' => $paginationData['to'],
                     'has_more_pages' => $paginationData['has_more_pages'],
                     'reclamation' => $reclamation ?? null, // Inclure la réclamation si elle est demandée
+                    'natures' => $natures, // Inclure les natures et sous-natures
                     'tous' => $request->all()
                 ]
             ], 200);
@@ -709,6 +742,53 @@ class ReclamationController extends Controller
             ]);
 
             abort(500, 'Erreur lors du téléchargement');
+        }
+    }
+
+    /**
+     * Sauvegarder les associations nature/sous-nature pour une réclamation.
+     */
+    private function saveNatureSousNatureAssociations($reclamationId, $natures, $sousNatures = [])
+    {
+
+
+        foreach ($natures as $natureId) {
+            // Récupérer le libellé de la nature
+            $nature = \App\Models\ReclamationClient\Nature::find($natureId);
+            $natureLib = $nature ? $nature->NATLIB : '';
+
+
+            // Créer une association pour chaque nature sélectionnée
+            ReclamationNatureSousNature::create([
+                'reclamation_id' => $reclamationId,
+                'nature_id' => $natureId,
+                'sous_nature_id' => null, // Pas de sous-nature pour cette association
+                'nature_lib' => $natureLib,
+                'sous_nature_lib' => null
+            ]);
+
+
+
+        }
+
+        // Créer des associations pour les sous-natures sélectionnées
+        foreach ($sousNatures as $sousNatureId) {
+            // Trouver la sous-nature et sa nature parent
+            $sousNature = \App\Models\ReclamationClient\SousNature::find($sousNatureId);
+            if ($sousNature && in_array($sousNature->NATID, $natures)) {
+                // Récupérer les libellés
+                $nature = \App\Models\ReclamationClient\Nature::find($sousNature->NATID);
+                $natureLib = $nature ? $nature->NATLIB : '';
+                $sousNatureLib = $sousNature->SOUSLIB;
+
+                ReclamationNatureSousNature::create([
+                    'reclamation_id' => $reclamationId,
+                    'nature_id' => $sousNature->NATID,
+                    'sous_nature_id' => $sousNatureId,
+                    'nature_lib' => $natureLib,
+                    'sous_nature_lib' => $sousNatureLib
+                ]);
+            }
         }
     }
 }
