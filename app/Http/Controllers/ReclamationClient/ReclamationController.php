@@ -34,6 +34,7 @@ class ReclamationController extends Controller
                 'contenu' => 'required|string',
                 'consequences' => 'nullable|string',
                 'action_attendue' => 'nullable|string',
+                'autre_type_reclamation' => 'nullable|string',
                 'natures' => 'required|array|min:1',
                 'natures.*' => 'required|integer|exists:nature,NATID',
                 'sous_natures' => 'nullable|array',
@@ -72,6 +73,7 @@ class ReclamationController extends Controller
                     'contenu' => $validatedData['contenu'],
                     'consequences' => $validatedData['consequences'] ?? null,
                     'action_attendue' => $validatedData['action_attendue'] ?? null,
+                    'autre_type_reclamation' => $validatedData['autre_type_reclamation'] ?? null,
                     'user_id' => Auth::id(),
                     'statut' => 'nouvelle',
                     'date_creation' => now(),
@@ -397,7 +399,7 @@ class ReclamationController extends Controller
             });
 
             // Récupérer toutes les natures avec leurs sous-natures
-            $natures = Nature::with('sousNatures')->orderBy('ORDRE')->get()->map(function ($nature) {
+            $natures = Nature::with('sousNatures')->where('NATLIB','<>','AUTRES')->orderBy('ORDRE')->get()->map(function ($nature) {
                 return [
                     'id' => $nature->NATID,
                     'libelle' => $nature->NATLIB,

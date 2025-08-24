@@ -25,6 +25,7 @@ class Reclamation extends Model
         'contenu',
         'consequences',
         'action_attendue',
+        'autre_type_reclamation',
         'user_id',
         'statut',
         'date_creation',
