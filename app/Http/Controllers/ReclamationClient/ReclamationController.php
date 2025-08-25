@@ -217,6 +217,13 @@ class ReclamationController extends Controller
             $validatedData = $request->validate([
                 'objet' => 'required|string|max:255',
                 'contenu' => 'required|string',
+                'consequences' => 'nullable|string',
+                'action_attendue' => 'nullable|string',
+                'autre_type_reclamation' => 'nullable|string',
+                'natures' => 'required|array|min:1',
+                'natures.*' => 'required|integer|exists:nature,NATID',
+                'sous_natures' => 'nullable|array',
+                'sous_natures.*' => 'nullable|integer|exists:sous_nature,SOUSID',
                 'fichiers' => 'nullable|array',
                 'fichiers.*' => 'file|max:10240|mimes:jpg,jpeg,png,gif,pdf,doc,docx,txt',
                 'fichiers_a_supprimer' => 'nullable|array',
@@ -225,6 +232,10 @@ class ReclamationController extends Controller
                 'objet.required' => 'L\'objet de la réclamation est requis.',
                 'objet.max' => 'L\'objet ne peut pas dépasser 255 caractères.',
                 'contenu.required' => 'Le contenu de la réclamation est requis.',
+                'natures.required' => 'Au moins un type de réclamation doit être sélectionné.',
+                'natures.min' => 'Au moins un type de réclamation doit être sélectionné.',
+                'natures.*.exists' => 'Le type de réclamation sélectionné n\'existe pas.',
+                'sous_natures.*.exists' => 'Le sous-type de réclamation sélectionné n\'existe pas.',
                 'fichiers.*.file' => 'Le fichier doit être un fichier valide.',
                 'fichiers.*.max' => 'La taille du fichier ne peut pas dépasser 10 MB.',
                 'fichiers.*.mimes' => 'Le format du fichier n\'est pas autorisé.',
@@ -257,8 +268,17 @@ class ReclamationController extends Controller
                 $reclamation->update([
                     'objet' => $validatedData['objet'],
                     'contenu' => $validatedData['contenu'], // ou $contenu si tu veux le texte nettoyé
+                    'consequences' => $validatedData['consequences'] ?? null,
+                    'action_attendue' => $validatedData['action_attendue'] ?? null,
+                    'autre_type_reclamation' => $validatedData['autre_type_reclamation'] ?? null,
                     'updated_at' => now(),
                 ]);
+
+                // Supprimer les anciennes associations natures/sous-natures
+                ReclamationNatureSousNature::where('reclamation_id', $reclamation->id)->delete();
+
+                // Sauvegarder les nouvelles associations nature/sous-nature
+                $this->saveNatureSousNatureAssociations($reclamation->id, $validatedData['natures'], $validatedData['sous_natures'] ?? []);
 
                 // Suppression des fichiers si demandé
                 if (!empty($validatedData['fichiers_a_supprimer'])) {
@@ -343,7 +363,7 @@ class ReclamationController extends Controller
 
             if ($request->has('id_reclamation')) {
                 // Récupérer la réclamation avec ses relations
-                $reclamation = Reclamation::with(['fichiers', 'utilisateur', 'traitePar'])
+                $reclamation = Reclamation::with(['fichiers', 'utilisateur', 'traitePar', 'naturesAssociees'])
                     // ->where('user_id', Auth::id()) // Sécurité : l'utilisateur ne peut voir que ses propres réclamations
                     ->findOrFail($request->id_reclamation);
 
@@ -352,6 +372,9 @@ class ReclamationController extends Controller
                     'id' => $reclamation->id,
                     'objet' => $reclamation->objet,
                     'contenu' => $reclamation->contenu,
+                    'consequences' => $reclamation->consequences,
+                    'action_attendue' => $reclamation->action_attendue,
+                    'autre_type_reclamation' => $reclamation->autre_type_reclamation,
                     'statut' => $reclamation->statut,
                     'statut_formatte' => $reclamation->statut_formatte,
                     'date_creation' => $reclamation->date_creation,
@@ -373,6 +396,14 @@ class ReclamationController extends Controller
                             'taille' => $fichier->taille,
                             'type_mime' => $fichier->type_mime,
                             'date_upload' => $fichier->date_upload,
+                        ];
+                    }),
+                    'natures_associees' => $reclamation->naturesAssociees->map(function ($association) {
+                        return [
+                            'nature_id' => $association->nature_id,
+                            'sous_nature_id' => $association->sous_nature_id,
+                            'nature_lib' => $association->nature_lib,
+                            'sous_nature_lib' => $association->sous_nature_lib,
                         ];
                     }),
                 ];
@@ -599,7 +630,7 @@ class ReclamationController extends Controller
     {
         try {
             // Récupérer la réclamation avec ses relations
-            $reclamation = Reclamation::with(['fichiers', 'utilisateur', 'traitePar'])
+            $reclamation = Reclamation::with(['fichiers', 'utilisateur', 'traitePar', 'naturesAssociees'])
                 ->where('user_id', Auth::id()) // Sécurité : l'utilisateur ne peut voir que ses propres réclamations
                 ->findOrFail($id);
 
@@ -608,6 +639,9 @@ class ReclamationController extends Controller
                 'id' => $reclamation->id,
                 'objet' => $reclamation->objet,
                 'contenu' => $reclamation->contenu,
+                'consequences' => $reclamation->consequences,
+                'action_attendue' => $reclamation->action_attendue,
+                'autre_type_reclamation' => $reclamation->autre_type_reclamation,
                 'statut' => $reclamation->statut,
                 'statut_formatte' => $reclamation->statut_formatte,
                 'date_creation' => $reclamation->date_creation,
@@ -629,6 +663,14 @@ class ReclamationController extends Controller
                         'taille' => $fichier->taille,
                         'type_mime' => $fichier->type_mime,
                         'date_upload' => $fichier->date_upload,
+                    ];
+                }),
+                'natures_associees' => $reclamation->naturesAssociees->map(function ($association) {
+                    return [
+                        'nature_id' => $association->nature_id,
+                        'sous_nature_id' => $association->sous_nature_id,
+                        'nature_lib' => $association->nature_lib,
+                        'sous_nature_lib' => $association->sous_nature_lib,
                     ];
                 }),
             ];

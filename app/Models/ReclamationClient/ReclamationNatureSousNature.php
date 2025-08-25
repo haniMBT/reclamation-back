@@ -5,8 +5,8 @@ namespace App\Models\ReclamationClient;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use App\Models\Nature;
-use App\Models\SousNature;
+use App\Models\ReclamationClient\Nature;
+use App\Models\ReclamationClient\SousNature;
 
 class ReclamationNatureSousNature extends Model
 {
