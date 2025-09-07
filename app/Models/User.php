@@ -47,6 +47,14 @@ class User extends Authenticatable implements JWTSubject
         'Password' => 'hashed',
     ];
 
+    public function scopePrivileges($volet_app)
+    {
+        $privilege = DB::table('p_privileges')->join('p_profils', 'p_profils.code', 'p_privileges.profil_code')
+            ->where('p_profils.code', Auth::user()->privilege)->where('volet', $volet_app)
+            ->select('p_privileges.*')->first();
+        return $privilege;
+    }
+
 
     public function hasExistingProfil() {
         return false;
