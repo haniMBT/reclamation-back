@@ -23,6 +23,9 @@ class Reclamation extends Model
     protected $fillable = [
         'objet',
         'contenu',
+        'consequences',
+        'action_attendue',
+        'autre_type_reclamation',
         'user_id',
         'statut',
         'date_creation',
@@ -73,6 +76,14 @@ class Reclamation extends Model
     public function fichiers(): HasMany
     {
         return $this->hasMany(\App\Models\ReclamationClient\FichierClient::class, 'reclamation_id');
+    }
+
+    /**
+     * Relation : Une réclamation peut avoir plusieurs associations nature/sous-nature.
+     */
+    public function naturesAssociees(): HasMany
+    {
+        return $this->hasMany(\App\Models\ReclamationClient\ReclamationNatureSousNature::class, 'reclamation_id');
     }
 
     /**
