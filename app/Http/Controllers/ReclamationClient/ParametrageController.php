@@ -157,7 +157,63 @@ class ParametrageController extends Controller
 
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Erreur lors de la création du ticket',
+                'error' => 'Erreur lors de l\'enregistrement',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Supprimer un ticket et ses relations
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function destroy($id): JsonResponse
+    {
+        try {
+            // Vérifier que le ticket existe
+            $ticket = BRecTickets::find($id);
+            
+            if (!$ticket) {
+                return response()->json([
+                    'error' => 'Ticket non trouvé',
+                    'message' => 'Le ticket avec l\'ID ' . $id . ' n\'existe pas.'
+                ], 404);
+            }
+
+            DB::beginTransaction();
+
+            // Supprimer les détails des types associés
+            foreach ($ticket->types as $type) {
+                $type->details()->delete();
+            }
+
+            // Supprimer les types associés
+            $ticket->types()->delete();
+
+            // Supprimer les infos générales associées
+            $ticket->infosGenerales()->delete();
+
+            // Supprimer le ticket
+            $ticket->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Ticket supprimé avec succès',
+                'data' => [
+                    'deleted_ticket_id' => $id,
+                    'deleted_ticket_libelle' => $ticket->libelle
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            return response()->json([
+                'error' => 'Erreur lors de la suppression',
                 'message' => $e->getMessage()
             ], 500);
         }

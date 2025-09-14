@@ -34,6 +34,7 @@ Route::middleware(['auth:sanctum', 'check.token.expiration'])->group(function ()
     // Routes pour le paramétrage
     Route::get('rec/parametrage', [ParametrageController::class, 'index'])->name('parametrage.index');
     Route::post('rec/parametrage', [ParametrageController::class, 'store'])->name('parametrage.store');
+    Route::delete('rec/parametrage/{id}', [ParametrageController::class, 'destroy'])->name('parametrage.destroy');
 
     // Routes pour les types et détails
     Route::post('rec/type', [TypeController::class, 'store'])->name('type.store');
