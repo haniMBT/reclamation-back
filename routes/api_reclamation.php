@@ -3,6 +3,7 @@
 use App\Http\Controllers\ReclamationClient\ReclamationController;
 use App\Http\Controllers\ReclamationClient\NatureController;
 use App\Http\Controllers\ReclamationClient\ParametrageController;
+use App\Http\Controllers\ReclamationClient\TypeController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -33,4 +34,7 @@ Route::middleware(['auth:sanctum', 'check.token.expiration'])->group(function ()
     // Routes pour le paramétrage
     Route::get('rec/parametrage', [ParametrageController::class, 'index'])->name('parametrage.index');
     Route::post('rec/parametrage', [ParametrageController::class, 'store'])->name('parametrage.store');
+
+    // Routes pour les types et détails
+    Route::post('rec/type', [TypeController::class, 'store'])->name('type.store');
 });
