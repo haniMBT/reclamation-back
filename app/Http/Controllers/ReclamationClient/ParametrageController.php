@@ -14,7 +14,7 @@ use Illuminate\Http\JsonResponse;
 class ParametrageController extends Controller
 {
     /**
-     * Récupérer tous les tickets et directions
+     * Récupérer tous les tickets avec leurs infos générales, types et détails
      *
      * @param Request $request
      * @return JsonResponse
@@ -22,16 +22,58 @@ class ParametrageController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            // Récupérer tous les tickets
-            $tickets = BRecTickets::all();
+            // Récupérer tous les tickets avec leurs relations
+            $tickets = BRecTickets::with([
+                'infosGenerales',
+                'types.details'
+            ])->get();
 
             // Récupérer toutes les directions (basé sur MainController)
             $directions = Direction::groupby('DIRECTION')
                 ->select('DIRECTION')
                 ->get();
 
+            // Formater les données pour une meilleure présentation
+            $formattedTickets = $tickets->map(function ($ticket) {
+                return [
+                    'id' => $ticket->id,
+                    'libelle' => $ticket->libelle,
+                    'documentAfornir' => $ticket->documentAfornir,
+                    'direction' => $ticket->direction,
+                    'created_at' => $ticket->created_at,
+                    'updated_at' => $ticket->updated_at,
+                    'infos_generales' => $ticket->infosGenerales->map(function ($info) {
+                        return [
+                            'id' => $info->id,
+                            'libelle' => $info->libelle,
+                            'key_attribut' => $info->key_attirubut, // Note: utilise le nom du champ avec la faute de frappe
+                        ];
+                    }),
+                    'types' => $ticket->types->map(function ($type) {
+                        return [
+                            'id' => $type->id,
+                            'libelle' => $type->libelle,
+                            'direction' => $type->direction,
+                            'statut_direction' => $type->statut_direction,
+                            'created_at' => $type->created_at,
+                            'updated_at' => $type->updated_at,
+                            'details' => $type->details->map(function ($detail) {
+                                return [
+                                    'id' => $detail->id,
+                                    'libelle' => $detail->libelle,
+                                    'direction' => $detail->direction,
+                                    'statut_direction' => $detail->statut_direction,
+                                    'created_at' => $detail->created_at,
+                                    'updated_at' => $detail->updated_at,
+                                ];
+                            })
+                        ];
+                    })
+                ];
+            });
+
             $data = [
-                'tickets' => $tickets,
+                'tickets' => $formattedTickets,
                 'directions' => $directions
             ];
 
