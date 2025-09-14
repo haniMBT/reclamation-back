@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\api_reclamation;
+namespace App\Http\Controllers\ReclamationClient;
 
 use App\Http\Controllers\Controller;
 use App\Models\Direction;
