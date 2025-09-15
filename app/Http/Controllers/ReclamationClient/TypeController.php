@@ -85,4 +85,88 @@ class TypeController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Mettre à jour un type avec ses détails
+     *
+     * @param int $id
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function update(int $id, Request $request): JsonResponse
+    {
+        try {
+            // Vérifier que le type existe
+            $existingType = BRecType::findOrFail($id);
+
+            // Extraire les données du premier élément du tableau types
+            $typeData = $request->input('types.0', []);
+
+            // Validation des données
+            $validator = Validator::make([
+                'libelle' => $typeData['libelle'] ?? null,
+                'direction' => $typeData['direction'] ?? null,
+                'statut_direction' => $typeData['statut_direction'] ?? null,
+                'details' => $typeData['details'] ?? []
+            ], [
+                'libelle' => 'required|string',
+                'direction' => 'nullable|string',
+                'statut_direction' => 'nullable|in:consultation,traitement',
+                'details' => 'nullable|array',
+                'details.*.libelle' => 'required|string',
+                'details.*.direction' => 'nullable|string',
+                'details.*.statut_direction' => 'nullable|in:consultation,traitement',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'error' => 'Erreur de validation',
+                    'messages' => $validator->errors()
+                ], 422);
+            }
+
+            // Utiliser une transaction pour garantir l'intégrité des données
+            return DB::transaction(function () use ($id, $typeData, $existingType) {
+                // Supprimer tous les détails existants
+                BRecDetail::where('id_btype', $id)->delete();
+
+                // Mettre à jour le type
+                $existingType->update([
+                    'libelle' => $typeData['libelle'],
+                    'direction' => $typeData['direction'] ?? null,
+                    'statut_direction' => $typeData['statut_direction'] ?? null
+                ]);
+
+                // Réinsérer les nouveaux détails si fournis
+                if (isset($typeData['details']) && is_array($typeData['details'])) {
+                    foreach ($typeData['details'] as $detailData) {
+                        BRecDetail::create([
+                            'id_btype' => $id,
+                            'libelle' => $detailData['libelle'],
+                            'direction' => $detailData['direction'] ?? null,
+                            'statut_direction' => $detailData['statut_direction'] ?? null
+                        ]);
+                    }
+                }
+
+                // Charger la relation details pour la retourner dans la réponse
+                $existingType->load('details');
+
+                return response()->json([
+                    'message' => 'Type mis à jour avec succès',
+                    'type' => $existingType
+                ], 200);
+            });
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'error' => 'Type non trouvé',
+                'message' => 'Le type avec l\'ID ' . $id . ' n\'existe pas.'
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Erreur lors de la mise à jour du type',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

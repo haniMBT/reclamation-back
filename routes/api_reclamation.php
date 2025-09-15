@@ -39,4 +39,5 @@ Route::delete('rec/parametrage/{id}', [ParametrageController::class, 'destroy'])
 
     // Routes pour les types et détails
     Route::post('rec/type', [TypeController::class, 'store'])->name('type.store');
+    Route::put('rec/type/{id}', [TypeController::class, 'update'])->name('type.update');
 });
