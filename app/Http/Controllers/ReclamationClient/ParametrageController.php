@@ -164,6 +164,97 @@ class ParametrageController extends Controller
     }
 
     /**
+     * Mettre à jour un ticket avec ses infos générales
+     *
+     * @param int $id
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function update($id, Request $request): JsonResponse
+    {
+        try {
+            // Vérifier que le ticket existe
+            $ticket = BRecTickets::find($id);
+            
+            if (!$ticket) {
+                return response()->json([
+                    'error' => 'Ticket non trouvé',
+                    'message' => 'Le ticket avec l\'ID ' . $id . ' n\'existe pas.'
+                ], 404);
+            }
+
+            // Validation des données
+            $validator = Validator::make($request->all(), [
+                'libelle' => 'required|string|max:255',
+                'documentAfornir' => 'nullable|string',
+                'direction' => 'required|string|exists:direction,DIRECTION',
+                'infos_generales' => 'nullable|array',
+                'infos_generales.*.libelle' => 'required|string',
+                'infos_generales.*.key_attribut' => 'required|boolean',
+            ], [
+                'libelle.required' => 'Le libellé est obligatoire',
+                'libelle.string' => 'Le libellé doit être une chaîne de caractères',
+                'libelle.max' => 'Le libellé ne peut pas dépasser 255 caractères',
+                'documentAfornir.string' => 'Le document à fournir doit être une chaîne de caractères',
+                'direction.required' => 'La direction est obligatoire',
+                'direction.string' => 'La direction doit être une chaîne de caractères',
+                'direction.exists' => 'La direction sélectionnée n\'existe pas',
+                'infos_generales.array' => 'Les informations générales doivent être un tableau',
+                'infos_generales.*.libelle.required' => 'Le libellé de l\'information générale est obligatoire',
+                'infos_generales.*.libelle.string' => 'Le libellé de l\'information générale doit être une chaîne de caractères',
+                'infos_generales.*.key_attribut.required' => 'L\'attribut clé est obligatoire',
+                'infos_generales.*.key_attribut.boolean' => 'L\'attribut clé doit être un booléen',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'error' => 'Erreur de validation',
+                    'messages' => $validator->errors()
+                ], 422);
+            }
+
+            // Utiliser une transaction pour garantir l'intégrité des données
+            return DB::transaction(function () use ($request, $ticket) {
+                // Mettre à jour le ticket
+                $ticket->update([
+                    'libelle' => $request->libelle,
+                    'documentAfornir' => $request->documentAfornir,
+                    'direction' => $request->direction
+                ]);
+
+                // Supprimer les anciennes infos générales
+                $ticket->infosGenerales()->delete();
+
+                // Réinsérer les nouvelles infos générales si elles sont fournies
+                if ($request->has('infos_generales') && is_array($request->infos_generales)) {
+                    foreach ($request->infos_generales as $info) {
+                        // Notez que nous utilisons key_attirubut (avec la faute de frappe) car c'est le nom du champ dans le modèle
+                        BRecInfoGeneral::create([
+                            'bticket_id' => $ticket->id,
+                            'libelle' => $info['libelle'],
+                            'key_attirubut' => $info['key_attribut']
+                        ]);
+                    }
+                }
+
+                // Charger la relation infosGenerales pour la retourner dans la réponse
+                $ticket->load('infosGenerales');
+
+                return response()->json([
+                    'message' => 'Ticket modifié avec succès',
+                    'ticket' => $ticket
+                ], 200);
+            });
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Erreur lors de la modification',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Supprimer un ticket et ses relations
      *
      * @param int $id
