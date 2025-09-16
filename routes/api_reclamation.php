@@ -37,8 +37,7 @@ Route::post('rec/parametrage', [ParametrageController::class, 'store'])->name('p
 Route::put('rec/parametrage/{id}', [ParametrageController::class, 'update'])->name('parametrage.update');
 Route::delete('rec/parametrage/{id}', [ParametrageController::class, 'destroy'])->name('parametrage.destroy');
 
-    // Routes pour les types et détails
-    Route::post('rec/type', [TypeController::class, 'store'])->name('type.store');
-    Route::put('rec/type/{id}', [TypeController::class, 'update'])->name('type.update');
-    Route::put('rec/ticket/{ticketId}/types', [TypeController::class, 'updateByTicket'])->name('type.updateByTicket');
+    // Routes pour les types et détails (API centralisée)
+    Route::put('rec/ticket/{ticketId}/types', [TypeController::class, 'storeOrUpdateGlobal'])->name('type.storeOrUpdateGlobal');
+    Route::put('rec/type/global/{ticketId}', [TypeController::class, 'storeOrUpdateGlobal'])->name('type.storeOrUpdateGlobalAlias');
 });

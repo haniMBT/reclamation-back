@@ -14,204 +14,45 @@ use Illuminate\Http\JsonResponse;
 class TypeController extends Controller
 {
     /**
-     * Enregistrer un ou plusieurs types avec leurs détails
+     * Méthode centralisée pour créer/modifier tous les types et détails d'un ticket
+     * Remplace les anciennes méthodes store, update et updateByTicket
      *
      * @param Request $request
-     * @return JsonResponse
-     */
-    public function store(Request $request): JsonResponse
-    {
-        try {
-            // Validation des données
-            $validator = Validator::make($request->all(), [
-                'id_btickes' => 'required|exists:b_rec_tickets,id',
-                'types' => 'required|array|min:1',
-                'types.*.libelle' => 'required|string',
-                'types.*.direction' => 'nullable|string',
-                'types.*.statut_direction' => 'nullable|in:consultation,traitement',
-                'types.*.details' => 'nullable|array',
-                'types.*.details.*.libelle' => 'required|string',
-                'types.*.details.*.direction' => 'nullable|string',
-                'types.*.details.*.statut_direction' => 'nullable|in:consultation,traitement',
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'error' => 'Erreur de validation',
-                    'messages' => $validator->errors()
-                ], 422);
-            }
-
-            // Utiliser une transaction pour garantir l'intégrité des données
-            return DB::transaction(function () use ($request) {
-                $createdTypes = [];
-                
-                // Créer chaque type avec ses détails
-                foreach ($request->types as $typeData) {
-                    // Créer le nouveau type
-                    $type = BRecType::create([
-                        'id_btickes' => $request->id_btickes,
-                        'libelle' => $typeData['libelle'],
-                        'direction' => $typeData['direction'] ?? null,
-                        'statut_direction' => $typeData['statut_direction'] ?? null
-                    ]);
-
-                    // Enregistrer les détails si fournis
-                    if (isset($typeData['details']) && is_array($typeData['details'])) {
-                        foreach ($typeData['details'] as $detailData) {
-                            BRecDetail::create([
-                                'id_btype' => $type->id,
-                                'libelle' => $detailData['libelle'],
-                                'direction' => $detailData['direction'] ?? null,
-                                'statut_direction' => $detailData['statut_direction'] ?? null
-                            ]);
-                        }
-                    }
-
-                    // Charger la relation details pour la retourner dans la réponse
-                    $type->load('details');
-                    $createdTypes[] = $type;
-                }
-
-                return response()->json([
-                    'message' => count($createdTypes) > 1 ? 'Types créés avec succès' : 'Type créé avec succès',
-                    'types' => $createdTypes
-                ], 201);
-            });
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Erreur lors de la création des types',
-                'message' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * Mettre à jour un type avec ses détails
-     *
-     * @param int $id
-     * @param Request $request
-     * @return JsonResponse
-     */
-    public function update(int $id, Request $request): JsonResponse
-    {
-        try {
-            // Vérifier que le type existe
-            $existingType = BRecType::findOrFail($id);
-
-            // Extraire les données du premier élément du tableau types
-            $typeData = $request->input('types.0', []);
-
-            // Validation des données
-            $validator = Validator::make([
-                'libelle' => $typeData['libelle'] ?? null,
-                'direction' => $typeData['direction'] ?? null,
-                'statut_direction' => $typeData['statut_direction'] ?? null,
-                'details' => $typeData['details'] ?? []
-            ], [
-                'libelle' => 'required|string',
-                'direction' => 'nullable|string',
-                'statut_direction' => 'nullable|in:consultation,traitement',
-                'details' => 'nullable|array',
-                'details.*.libelle' => 'required|string',
-                'details.*.direction' => 'nullable|string',
-                'details.*.statut_direction' => 'nullable|in:consultation,traitement',
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'error' => 'Erreur de validation',
-                    'messages' => $validator->errors()
-                ], 422);
-            }
-
-            // Utiliser une transaction pour garantir l'intégrité des données
-            return DB::transaction(function () use ($id, $typeData, $existingType) {
-                // Supprimer tous les détails existants
-                BRecDetail::where('id_btype', $id)->delete();
-
-                // Mettre à jour le type
-                $existingType->update([
-                    'libelle' => $typeData['libelle'],
-                    'direction' => $typeData['direction'] ?? null,
-                    'statut_direction' => $typeData['statut_direction'] ?? null
-                ]);
-
-                // Réinsérer les nouveaux détails si fournis
-                if (isset($typeData['details']) && is_array($typeData['details'])) {
-                    foreach ($typeData['details'] as $detailData) {
-                        BRecDetail::create([
-                            'id_btype' => $id,
-                            'libelle' => $detailData['libelle'],
-                            'direction' => $detailData['direction'] ?? null,
-                            'statut_direction' => $detailData['statut_direction'] ?? null
-                        ]);
-                    }
-                }
-
-                // Charger la relation details pour la retourner dans la réponse
-                $existingType->load('details');
-
-                return response()->json([
-                    'message' => 'Type mis à jour avec succès',
-                    'type' => $existingType
-                ], 200);
-            });
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return response()->json([
-                'error' => 'Type non trouvé',
-                'message' => 'Le type avec l\'ID ' . $id . ' n\'existe pas.'
-            ], 404);
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Erreur lors de la mise à jour du type',
-                'message' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * Mettre à jour tous les types et détails d'un ticket
-     *
      * @param int $ticketId
-     * @param Request $request
      * @return JsonResponse
      */
-    public function updateByTicket(int $ticketId, Request $request): JsonResponse
+    public function storeOrUpdateGlobal(Request $request, int $ticketId): JsonResponse
     {
+        // Validation des données
+        $validator = Validator::make($request->all(), [
+            'types' => 'required|array',
+            'types.*.libelle' => 'required|string|max:255',
+            'types.*.direction' => 'nullable|string|max:255',
+            'types.*.statut_direction' => 'nullable|string|in:consultation,traitement',
+            'types.*.details' => 'nullable|array',
+            'types.*.details.*.libelle' => 'required|string|max:255',
+            'types.*.details.*.direction' => 'nullable|string|max:255',
+            'types.*.details.*.statut_direction' => 'nullable|string|in:consultation,traitement',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'error' => 'Données invalides',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
         try {
             // Vérifier que le ticket existe
             $ticket = BRecTickets::findOrFail($ticketId);
 
-            // Validation des données
-            $validator = Validator::make($request->all(), [
-                'types' => 'required|array|min:1',
-                'types.*.libelle' => 'required|string',
-                'types.*.direction' => 'nullable|string',
-                'types.*.statut_direction' => 'nullable|in:consultation,traitement',
-                'types.*.details' => 'nullable|array',
-                'types.*.details.*.libelle' => 'required|string',
-                'types.*.details.*.direction' => 'nullable|string',
-                'types.*.details.*.statut_direction' => 'nullable|in:consultation,traitement',
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'error' => 'Erreur de validation',
-                    'errors' => $validator->errors()
-                ], 422);
-            }
-
             // Utiliser une transaction pour garantir l'intégrité des données
-            return DB::transaction(function () use ($ticketId, $request, $ticket) {
-                // Supprimer tous les types existants liés au ticket
-                // Les détails seront supprimés automatiquement grâce aux contraintes de clé étrangère
+            return DB::transaction(function () use ($request, $ticketId, $ticket) {
+                // Supprimer tous les types et détails existants du ticket
                 $existingTypes = BRecType::where('id_btickes', $ticketId)->get();
                 foreach ($existingTypes as $type) {
-                    // Supprimer les détails du type
                     BRecDetail::where('id_btype', $type->id)->delete();
                 }
-                // Supprimer les types
                 BRecType::where('id_btickes', $ticketId)->delete();
 
                 $createdTypes = [];
@@ -264,4 +105,8 @@ class TypeController extends Controller
             ], 500);
         }
     }
+
+
+
+
 }
