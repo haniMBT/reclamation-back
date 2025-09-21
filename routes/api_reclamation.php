@@ -40,6 +40,7 @@ Route::delete('rec/parametrage/{id}', [ParametrageController::class, 'destroy'])
 
     // Routes pour les tickets
     Route::get('rec/tickets', [TicketController::class, 'index'])->name('tickets.index');
+    Route::post('rec/tickets/check-duplicate', [TicketController::class, 'checkDuplicate'])->name('tickets.checkDuplicate');
 
     // Routes pour les types et détails (API centralisée)
     Route::put('rec/ticket/{ticketId}/types', [TypeController::class, 'storeOrUpdateGlobal'])->name('type.storeOrUpdateGlobal');
