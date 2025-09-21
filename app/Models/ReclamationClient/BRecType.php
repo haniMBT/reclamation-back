@@ -27,6 +27,7 @@ class BRecType extends Model
         'libelle',
         'direction',
         'statut_direction',
+        'position',
     ];
 
     /**

@@ -3,6 +3,7 @@
 use App\Http\Controllers\ReclamationClient\ReclamationController;
 use App\Http\Controllers\ReclamationClient\NatureController;
 use App\Http\Controllers\ReclamationClient\ParametrageController;
+use App\Http\Controllers\ReclamationClient\TicketController;
 use App\Http\Controllers\ReclamationClient\TypeController;
 use Illuminate\Support\Facades\Route;
 
@@ -36,6 +37,9 @@ Route::middleware(['auth:sanctum', 'check.token.expiration'])->group(function ()
 Route::post('rec/parametrage', [ParametrageController::class, 'store'])->name('parametrage.store');
 Route::put('rec/parametrage/{id}', [ParametrageController::class, 'update'])->name('parametrage.update');
 Route::delete('rec/parametrage/{id}', [ParametrageController::class, 'destroy'])->name('parametrage.destroy');
+
+    // Routes pour les tickets
+    Route::get('rec/tickets', [TicketController::class, 'index'])->name('tickets.index');
 
     // Routes pour les types et détails (API centralisée)
     Route::put('rec/ticket/{ticketId}/types', [TypeController::class, 'storeOrUpdateGlobal'])->name('type.storeOrUpdateGlobal');
