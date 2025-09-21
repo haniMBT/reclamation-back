@@ -200,7 +200,18 @@ class TicketController extends Controller
                 'success' => true,
                 'message' => 'Réclamation créée avec succès',
                 'duplicate_found' => false,
-                'ticket_id' => $ticketId
+                'data' => [
+                    't_rec_ticket_id' => $ticketId,
+                    'b_rec_ticket_id' => $bticketId,
+                    'ticket_data' => [
+                        'bticket_id' => $bticketId,
+                        'user_id' => $userId,
+                        'direction' => $direction,
+                        'status' => $status,
+                        'description' => $description,
+                        'info_general_data' => $infoGeneralData
+                    ]
+                ]
             ], 201);
 
         } catch (\Exception $e) {
