@@ -7,6 +7,7 @@ use App\Models\ReclamationClient\BRecTickets;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class TicketController extends Controller
 {
@@ -68,15 +69,26 @@ class TicketController extends Controller
     {
         try {
             $request->validate([
-                'bticket_id' => 'required|integer',
-                'user_id' => 'required|integer',
-                'direction' => 'required|string',
-                'status' => 'required|string',
-                'description' => 'required|string',
-                'info_general_data' => 'required|array',
-                'info_general_data.*.info_general_id' => 'required|integer',
-                'info_general_data.*.value' => 'required|string',
+                'bticket_id' => 'required|integer|exists:b_rec_tickets,id',
+                'user_id' => 'required|integer|min:1',
+                'direction' => 'required|string|in:ENTRANT,SORTANT',
+                'status' => 'required|string|in:OUVERT,FERME,EN_COURS',
+                'description' => 'required|string|min:10|max:1000',
+                'info_general_data' => 'required|array|min:1',
+                'info_general_data.*.info_general_id' => 'required|integer|min:1',
+                'info_general_data.*.value' => 'required|string|min:1|max:255',
                 'info_general_data.*.key_attribut' => 'required|boolean'
+            ], [
+                'bticket_id.required' => 'L\'identifiant du ticket est requis.',
+                'bticket_id.exists' => 'Le ticket sélectionné n\'existe pas.',
+                'description.required' => 'La description est requise.',
+                'description.min' => 'La description doit contenir au moins 10 caractères.',
+                'description.max' => 'La description ne peut pas dépasser 1000 caractères.',
+                'info_general_data.required' => 'Les informations générales sont requises.',
+                'info_general_data.min' => 'Au moins une information générale est requise.',
+                'info_general_data.*.value.required' => 'La valeur du champ est requise.',
+                'info_general_data.*.value.min' => 'La valeur du champ ne peut pas être vide.',
+                'info_general_data.*.value.max' => 'La valeur du champ ne peut pas dépasser 255 caractères.'
             ]);
 
             $bticketId = $request->input('bticket_id');
@@ -126,6 +138,12 @@ class TicketController extends Controller
             // Aucun doublon trouvé, insérer les données
             return $this->insertTicketData($bticketId, $userId, $direction, $status, $description, $infoGeneralData);
 
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreurs de validation',
+                'errors' => $e->errors()
+            ], 422);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
