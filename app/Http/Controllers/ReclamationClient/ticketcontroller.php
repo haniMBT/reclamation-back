@@ -219,4 +219,186 @@ class TicketController extends Controller
             throw $e;
         }
     }
+
+    /**
+     * Récupère les données complètes d'un ticket avec ses types et détails
+     *
+     * @param int $ticketId
+     * @return JsonResponse
+     */
+    public function getCompleteTicketData($ticketId): JsonResponse
+    {
+        try {
+            // Récupérer le ticket de base avec ses informations
+            $baseTicket = BRecTickets::with('infosGenerales')->find($ticketId);
+
+            if (!$baseTicket) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Ticket non trouvé'
+                ], 404);
+            }
+
+            // Récupérer les types associés (t_rec_type)
+            $types = DB::table('b_rec_type')
+                ->where('id_btickes', $ticketId)
+                ->get();
+
+            // Pour chaque type, récupérer ses détails (t_rec_detail)
+            $typesWithDetails = $types->map(function ($type) {
+                $details = DB::table('b_rec_detail')
+                    ->where('id_btype', $type->id)
+                    ->get();
+
+                return [
+                    'id' => $type->id,
+                    'name' => $type->libelle ?? $type->name ?? 'Type ' . $type->id,
+                    'description' => $type->description ?? null,
+                    'details' => $details->map(function ($detail) {
+                        return [
+                            'id' => $detail->id,
+                            'label' => $detail->libelle ?? $detail->label ?? 'Détail ' . $detail->id,
+                            'type' => $detail->type ?? 'text', // text, textarea, select, checkbox, etc.
+                            'required' => (bool) ($detail->required ?? false),
+                            'placeholder' => $detail->placeholder ?? null,
+                            'default_value' => $detail->default_value ?? null,
+                            'options' => null
+                        ];
+                    })->toArray()
+                ];
+            });
+
+            // Formater les données du ticket
+            $ticketData = [
+                'id' => $baseTicket->id,
+                'libelle' => $baseTicket->libelle,
+                'documentAFournir' => $baseTicket->documentAfornir,
+                'direction' => $baseTicket->direction,
+                'created_at' => $baseTicket->created_at,
+                'updated_at' => $baseTicket->updated_at,
+                'infos_generales' => $baseTicket->infosGenerales->map(function ($info) {
+                    return [
+                        'id' => $info->id,
+                        'libelle' => $info->libelle,
+                        'key_attribut' => $info->key_attirubut,
+                    ];
+                })
+            ];
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Données du ticket récupérées avec succès',
+                'data' => [
+                    'ticket' => $ticketData,
+                    'types' => $typesWithDetails->toArray()
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des données du ticket',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Finalise une réclamation avec les informations complémentaires
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function completeTicket(Request $request): JsonResponse
+    {
+        try {
+            $request->validate([
+                'ticket_id' => 'required|integer|exists:t_rec_tickets,id',
+                'description' => 'required|string|min:10',
+                'type_details' => 'required|string', // JSON string
+                'files.*' => 'nullable|file|max:10240' // 10MB max per file
+            ], [
+                'ticket_id.required' => 'L\'identifiant du ticket est requis.',
+                'ticket_id.exists' => 'Le ticket spécifié n\'existe pas.',
+                'description.required' => 'La description détaillée est requise.',
+                'description.min' => 'La description doit contenir au moins 10 caractères.',
+                'files.*.max' => 'Chaque fichier ne peut pas dépasser 10MB.'
+            ]);
+
+            $ticketId = $request->input('ticket_id');
+            $description = $request->input('description');
+            $typeDetails = json_decode($request->input('type_details'), true);
+
+            DB::beginTransaction();
+
+            // Mettre à jour la description du ticket
+            DB::table('t_rec_tickets')
+                ->where('id', $ticketId)
+                ->update([
+                    'description_complete' => $description,
+                    'status' => 'COMPLETE',
+                    'updated_at' => now()
+                ]);
+
+            // Sauvegarder les détails des types
+            if ($typeDetails && is_array($typeDetails)) {
+                foreach ($typeDetails as $detailId => $value) {
+                    DB::table('t_rec_ticket_details')->updateOrInsert(
+                        [
+                            'ticket_id' => $ticketId,
+                            'detail_id' => $detailId
+                        ],
+                        [
+                            'value' => $value,
+                            'created_at' => now(),
+                            'updated_at' => now()
+                        ]
+                    );
+                }
+            }
+
+            // Gérer les fichiers joints
+            if ($request->hasFile('files')) {
+                foreach ($request->file('files') as $file) {
+                    $filename = time() . '_' . $file->getClientOriginalName();
+                    $path = $file->storeAs('reclamations/tickets/' . $ticketId, $filename, 'public');
+
+                    DB::table('t_rec_ticket_files')->insert([
+                        'ticket_id' => $ticketId,
+                        'filename' => $file->getClientOriginalName(),
+                        'path' => $path,
+                        'size' => $file->getSize(),
+                        'mime_type' => $file->getMimeType(),
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
+                }
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Réclamation finalisée avec succès',
+                'data' => [
+                    'ticket_id' => $ticketId,
+                    'status' => 'COMPLETE'
+                ]
+            ], 200);
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreurs de validation',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la finalisation de la réclamation',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }
