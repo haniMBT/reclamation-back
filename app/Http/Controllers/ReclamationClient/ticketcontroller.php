@@ -18,31 +18,51 @@ use Illuminate\Validation\ValidationException;
 
 class TicketController extends Controller
 {
-    public function index()
+    /**
+     * Récupère tous les tickets avec leurs informations générales.
+     *
+     * @return JsonResponse
+     */
+    public function index(): JsonResponse
     {
-        $tickets = BRecTickets::with('infosGenerales')->get();
-        
-        $formattedTickets = $tickets->map(function ($ticket) {
-            return [
-                'id' => $ticket->id,
-                'libelle' => $ticket->libelle,
-                'description' => $ticket->description,
-                'infos_generales' => $ticket->infosGenerales->map(function ($info) {
-                    return [
-                        'id' => $info->id,
-                        'libelle' => $info->libelle,
-                        'type' => $info->type,
-                        'obligatoire' => $info->obligatoire,
-                        'key_attribut' => $info->key_attribut
-                    ];
-                })
-            ];
-        });
-        
-        return response()->json([
-            'success' => true,
-            'data' => $formattedTickets
-        ]);
+        try {
+            // Récupérer tous les tickets avec leurs informations générales
+            $tickets = BRecTickets::with('infosGenerales')
+                ->orderBy('libelle', 'asc')
+                ->get();
+
+            // Formater les données pour le frontend
+            $formattedTickets = $tickets->map(function ($ticket) {
+                return [
+                    'id' => $ticket->id,
+                    'libelle' => $ticket->libelle,
+                    'documentAfornir' => $ticket->documentAfornir,
+                    'direction' => $ticket->direction,
+                    'created_at' => $ticket->created_at,
+                    'updated_at' => $ticket->updated_at,
+                    'infos_generales' => $ticket->infosGenerales->map(function ($info) {
+                        return [
+                            'id' => $info->id,
+                            'libelle' => $info->libelle,
+                            'key_attirubut' => $info->key_attirubut,
+                        ];
+                    })
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Tickets récupérés avec succès',
+                'data' => $formattedTickets
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des tickets',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -391,6 +411,23 @@ class TicketController extends Controller
 
     /**
      * Finalise une réclamation en sauvegardant la description, les fichiers, types et détails.
+     * Format standardisé du payload :
+     * {
+     *   "tticket_id": 123,
+     *   "b_rec_ticket_id": 45,
+     *   "description": "Texte descriptif",
+     *   "type_selection": [
+     *     {
+     *       "b_rec_type_id": 1,
+     *       "libelle": "Type A",
+     *       "details": [
+     *         { "b_rec_detail_id": 10, "libelle": "Détail 1" },
+     *         { "b_rec_detail_id": null, "libelle": "Autre texte libre" }
+     *       ]
+     *     }
+     *   ],
+     *   "files": [ fichier1, fichier2 ]
+     * }
      *
      * @param Request $request
      * @return JsonResponse
@@ -398,38 +435,70 @@ class TicketController extends Controller
     public function saveComplete(Request $request): JsonResponse
     {
         try {
-            // Validation de la requête
+            // Décoder le type_selection s'il est en JSON
+            $typeSelection = $request->input('type_selection');
+            if (is_string($typeSelection)) {
+                $typeSelection = json_decode($typeSelection, true);
+            }
+
+            // Validation de la requête avec le nouveau format
             $validatedData = $request->validate([
                 'tticket_id' => 'required|integer|exists:t_rec_tickets,id',
+                'b_rec_ticket_id' => 'nullable|integer',
                 'description' => 'nullable|string|max:5000',
-                'type_selection' => 'required|array|min:1',
-                'type_selection.*.type_id' => 'nullable|integer',
-                'type_selection.*.libelle' => 'required|string|max:255',
-                'type_selection.*.details' => 'nullable|array',
-                'type_selection.*.details.*.detail_id' => 'nullable|integer',
-                'type_selection.*.details.*.libelle' => 'required|string|max:255',
-                'type_selection.*.autre' => 'nullable|string|max:500',
                 'files' => 'nullable|array',
-                'files.*' => 'file|max:2048|mimes:jpg,jpeg,png,gif,pdf,doc,docx,txt', // 2MB max
+                'files.*' => 'file|max:10240|mimes:jpg,jpeg,png,gif,pdf,doc,docx,txt', // 10MB max
             ], [
                 'tticket_id.required' => 'L\'identifiant du ticket est requis.',
                 'tticket_id.exists' => 'Le ticket spécifié n\'existe pas.',
-                'type_selection.required' => 'Au moins un type doit être sélectionné.',
-                'type_selection.min' => 'Au moins un type doit être sélectionné.',
-                'files.*.max' => 'La taille du fichier ne peut pas dépasser 2 MB.',
+                'files.*.max' => 'La taille du fichier ne peut pas dépasser 10 MB.',
                 'files.*.mimes' => 'Le format du fichier n\'est pas autorisé.',
             ]);
+
+            // Validation manuelle du type_selection
+            if (!$typeSelection || !is_array($typeSelection) || empty($typeSelection)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Erreurs de validation',
+                    'errors' => ['type_selection' => ['Au moins un type doit être sélectionné.']]
+                ], 422);
+            }
+
+            // Valider chaque type dans type_selection
+            foreach ($typeSelection as $index => $typeData) {
+                if (!isset($typeData['libelle']) || empty(trim($typeData['libelle']))) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Erreurs de validation',
+                        'errors' => ["type_selection.{$index}.libelle" => ['Le libellé du type est requis.']]
+                    ], 422);
+                }
+
+                // Valider les détails si présents
+                if (isset($typeData['details']) && is_array($typeData['details'])) {
+                    foreach ($typeData['details'] as $detailIndex => $detailData) {
+                        if (!isset($detailData['libelle']) || empty(trim($detailData['libelle']))) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => 'Erreurs de validation',
+                                'errors' => ["type_selection.{$index}.details.{$detailIndex}.libelle" => ['Le libellé du détail est requis.']]
+                            ], 422);
+                        }
+                    }
+                }
+            }
 
             // Démarrer une transaction
             DB::beginTransaction();
 
             $tticketId = $validatedData['tticket_id'];
             $typesSavedCount = 0;
+            $detailsSavedCount = 0;
 
             // Mise à jour de la description du ticket
-            if (isset($validatedData['description'])) {
+            if (isset($validatedData['description']) && !empty(trim($validatedData['description']))) {
                 TRecTicket::where('id', $tticketId)
-                    ->update(['description' => $validatedData['description']]);
+                    ->update(['description' => trim($validatedData['description'])]);
             }
 
             // Gestion des fichiers uploadés
@@ -437,13 +506,13 @@ class TicketController extends Controller
                 $this->handleTicketFileUploads($request->file('files'), $tticketId);
             }
 
-            // Insertion des types et détails
-            foreach ($validatedData['type_selection'] as $typeData) {
-                // Créer le type
+            // Insertion des types et détails selon le nouveau format
+            foreach ($typeSelection as $typeData) {
+                // Créer le type avec le nouveau format
                 $tRecType = TRecType::create([
                     'tticket_id' => $tticketId,
-                    'b_rec_type_id' => $typeData['type_id'] ?? null,
-                    'libelle' => $typeData['libelle'],
+                    'b_rec_type_id' => isset($typeData['b_rec_type_id']) ? (int)$typeData['b_rec_type_id'] : null,
+                    'libelle' => trim($typeData['libelle']),
                 ]);
 
                 $typesSavedCount++;
@@ -453,19 +522,11 @@ class TicketController extends Controller
                     foreach ($typeData['details'] as $detailData) {
                         TRecDetail::create([
                             't_rec_type_id' => $tRecType->id,
-                            'b_rec_detail_id' => $detailData['detail_id'] ?? null,
-                            'libelle' => $detailData['libelle'],
+                            'b_rec_detail_id' => isset($detailData['b_rec_detail_id']) ? (int)$detailData['b_rec_detail_id'] : null,
+                            'libelle' => trim($detailData['libelle']),
                         ]);
+                        $detailsSavedCount++;
                     }
-                }
-
-                // Gérer le cas "autre" - insérer même sans b_rec_detail_id
-                if (isset($typeData['autre']) && !empty(trim($typeData['autre']))) {
-                    TRecDetail::create([
-                        't_rec_type_id' => $tRecType->id,
-                        'b_rec_detail_id' => null,
-                        'libelle' => trim($typeData['autre']),
-                    ]);
                 }
             }
 
@@ -476,11 +537,12 @@ class TicketController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Réclamation complétée',
+                'message' => 'Réclamation complétée avec succès',
                 'data' => [
-                    't_rec_ticket_id' => $tticketId,
+                    'tticket_id' => $tticketId,
                     'b_rec_ticket_id' => $ticket->bticket_id ?? null,
-                    'types_saved_count' => $typesSavedCount
+                    'types_saved_count' => $typesSavedCount,
+                    'details_saved_count' => $detailsSavedCount
                 ]
             ], 200);
 
