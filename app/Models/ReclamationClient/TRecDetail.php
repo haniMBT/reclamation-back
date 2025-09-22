@@ -45,4 +45,12 @@ class TRecDetail extends Model
     {
         return $this->belongsTo(TRecType::class, 't_rec_type_id');
     }
+
+    /**
+     * Get the base rec detail that this detail belongs to.
+     */
+    public function bRecDetail(): BelongsTo
+    {
+        return $this->belongsTo(BRecDetail::class, 'b_rec_detail_id');
+    }
 }

@@ -66,6 +66,146 @@ class TicketController extends Controller
     }
 
     /**
+     * Récupère tous les tickets avec pagination, recherche et filtres avancés.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function indexAll(Request $request): JsonResponse
+    {
+        try {
+            $perPage = $request->get('per_page', 15);
+            $page = $request->get('page', 1);
+            $search = $request->get('q', '');
+            $direction = $request->get('direction', '');
+            $status = $request->get('status', '');
+            $dateFrom = $request->get('date_from', '');
+            $dateTo = $request->get('date_to', '');
+            $typeId = $request->get('type_id', '');
+
+            // Query de base avec eager loading
+            $query = TRecTicket::with([
+                'baseTicket.infosGenerales',
+                'types.bRecType',
+                'types.details.bRecDetail'
+            ]);
+
+            // Filtrage par recherche globale
+            if (!empty($search)) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('description', 'like', '%' . $search . '%')
+                      ->orWhereHas('baseTicket', function ($subQ) use ($search) {
+                          $subQ->where('libelle', 'like', '%' . $search . '%')
+                               ->orWhere('direction', 'like', '%' . $search . '%');
+                      });
+                });
+            }
+
+            // Filtrage par direction
+            if (!empty($direction)) {
+                $query->whereHas('baseTicket', function ($q) use ($direction) {
+                    $q->where('direction', $direction);
+                });
+            }
+
+            // Filtrage par statut (si applicable)
+            if (!empty($status)) {
+                $query->where('status', $status);
+            }
+
+            // Filtrage par date de création
+            if (!empty($dateFrom)) {
+                $query->whereDate('created_at', '>=', $dateFrom);
+            }
+            if (!empty($dateTo)) {
+                $query->whereDate('created_at', '<=', $dateTo);
+            }
+
+            // Filtrage par type
+            if (!empty($typeId)) {
+                $query->whereHas('types', function ($q) use ($typeId) {
+                    $q->where('b_rec_type_id', $typeId);
+                });
+            }
+
+            // Pagination avec tri
+            $tickets = $query->orderBy('created_at', 'desc')
+                           ->paginate($perPage, ['*'], 'page', $page);
+
+            // Formater les données
+            $formattedTickets = $tickets->getCollection()->map(function ($ticket) {
+                $baseTicket = $ticket->baseTicket;
+                
+                return [
+                    'id' => $ticket->id,
+                    'bticket_id' => $ticket->bticket_id,
+                    'user_id' => $ticket->user_id,
+                    'direction' => $ticket->direction,
+                    'status' => $ticket->status ?? 'OUVERT',
+                    'description' => $ticket->description,
+                    'closed_at' => $ticket->closed_at,
+                    'created_at' => $ticket->created_at,
+                    'updated_at' => $ticket->updated_at,
+                    'libelle' => $baseTicket ? $baseTicket->libelle : null,
+                    'infos_generales' => $baseTicket && $baseTicket->infosGenerales ? $baseTicket->infosGenerales->map(function ($info) {
+                        return [
+                            'id' => $info->id,
+                            'libelle' => $info->libelle,
+                            'key_attirubut' => $info->key_attirubut,
+                            'bticket_id' => $info->bticket_id
+                        ];
+                    }) : [],
+                    'types' => $ticket->types->map(function ($type) {
+                        return [
+                            'id' => $type->id,
+                            'b_rec_type_id' => $type->b_rec_type_id,
+                            'libelle' => $type->libelle,
+                            'type_info' => $type->bRecType ? [
+                                'id' => $type->bRecType->id,
+                                'libelle' => $type->bRecType->libelle,
+                            ] : null,
+                            'details' => $type->details->map(function ($detail) {
+                                return [
+                                    'id' => $detail->id,
+                                    'b_rec_detail_id' => $detail->b_rec_detail_id,
+                                    'libelle' => $detail->libelle,
+                                    'detail_info' => $detail->bRecDetail ? [
+                                        'id' => $detail->bRecDetail->id,
+                                        'libelle' => $detail->bRecDetail->libelle,
+                                    ] : null,
+                                ];
+                            })
+                        ];
+                    })
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Tickets récupérés avec succès',
+                'data' => [
+                    'items' => $formattedTickets,
+                    'meta' => [
+                        'current_page' => $tickets->currentPage(),
+                        'per_page' => $tickets->perPage(),
+                        'total' => $tickets->total(),
+                        'last_page' => $tickets->lastPage(),
+                        'from' => $tickets->firstItem(),
+                        'to' => $tickets->lastItem()
+                    ]
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des tickets',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Vérifie s'il existe déjà une réclamation avec les mêmes informations clés.
      * Si aucun doublon, insère les données dans t_rec_tickets et t_rec_info_general.
      *

@@ -54,4 +54,12 @@ class TRecType extends Model
     {
         return $this->belongsTo(TRecTicket::class, 'tticket_id', 'id');
     }
+
+    /**
+     * Get the base rec type that this type belongs to.
+     */
+    public function bRecType(): BelongsTo
+    {
+        return $this->belongsTo(BRecType::class, 'b_rec_type_id');
+    }
 }

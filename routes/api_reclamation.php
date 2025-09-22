@@ -40,6 +40,7 @@ Route::delete('rec/parametrage/{id}', [ParametrageController::class, 'destroy'])
 
     // Routes pour les tickets
     Route::get('rec/tickets', [TicketController::class, 'index'])->name('tickets.index');
+    Route::get('rec/tickets/indexAll', [TicketController::class, 'indexAll'])->name('tickets.indexAll');
     Route::post('rec/tickets/check-duplicate', [TicketController::class, 'checkDuplicate'])->name('tickets.checkDuplicate');
     Route::get('rec/tickets/{ticketId}/complete-data', [TicketController::class, 'getCompleteTicketData'])->name('tickets.getCompleteData');
     Route::post('rec/tickets/complete', [TicketController::class, 'completeTicket'])->name('tickets.complete');
