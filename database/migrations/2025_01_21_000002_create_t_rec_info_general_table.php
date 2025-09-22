@@ -17,7 +17,7 @@ return new class extends Migration
             $table->unsignedBigInteger('info_general_id')->comment('ID de l\'information générale (b_rec_info_general)');
             $table->string('libelle')->comment('Libellé de l\'information');
             $table->boolean('key_attribut')->default(false)->comment('Indique si c\'est un attribut clé pour la vérification de doublons');
-            $table->string('value', 191)->nullable()->comment('Valeur saisie par l\'utilisateur');
+            $table->text('value')->nullable()->comment('Valeur saisie par l\'utilisateur');
             $table->timestamps();
 
             // Clés étrangères
@@ -29,7 +29,7 @@ return new class extends Migration
             $table->index('info_general_id');
             $table->index('key_attribut');
             $table->index(['tticket_id', 'key_attribut']); // Index composite pour la vérification de doublons
-            $table->index(['info_general_id', 'value']);   // Index composite pour les recherches par valeur
+            $table->index(['info_general_id', 'value']); // Index composite pour les recherches par valeur
 
             // Index unique pour éviter les doublons d'informations pour un même ticket
             $table->unique(['tticket_id', 'info_general_id'], 'unique_ticket_info');
