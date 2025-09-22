@@ -1,0 +1,87 @@
+<?php
+
+namespace App\Models\ReclamationClient;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\User;
+
+class TRecTicket extends Model
+{
+    use HasFactory;
+
+    /**
+     * The table associated with the model.
+     *
+     * @var string
+     */
+    protected $table = 't_rec_tickets';
+
+    /**
+     * The primary key for the model.
+     *
+     * @var string
+     */
+    protected $primaryKey = 'id';
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
+    protected $fillable = [
+        'bticket_id',
+        'user_id',
+        'direction',
+        'status',
+        'description',
+        'closed_at',
+    ];
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'closed_at' => 'datetime',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+    ];
+
+    /**
+     * Get the types for this ticket.
+     */
+    public function types(): HasMany
+    {
+        return $this->hasMany(TRecType::class, 'tticket_id', 'id');
+    }
+
+    // Note: Relation infos() sera ajoutée quand TRecInfoGeneral sera créé
+
+    /**
+     * Get the user that owns this ticket.
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the base ticket that this ticket belongs to.
+     */
+    public function baseTicket(): BelongsTo
+    {
+        return $this->belongsTo(BRecTickets::class, 'bticket_id');
+    }
+
+    /**
+      * Relation avec les fichiers du ticket
+      */
+     public function files()
+     {
+         return $this->hasMany(TRecTicketFile::class, 'ticket_id');
+     }
+}

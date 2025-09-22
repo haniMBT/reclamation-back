@@ -4,58 +4,45 @@ namespace App\Http\Controllers\ReclamationClient;
 
 use App\Http\Controllers\Controller;
 use App\Models\ReclamationClient\BRecTickets;
+use App\Models\ReclamationClient\TRecTicket;
+use App\Models\ReclamationClient\TRecType;
+use App\Models\ReclamationClient\TRecDetail;
+use App\Models\ReclamationClient\FichierClient;
+use App\Models\ReclamationClient\TRecTicketFile;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class TicketController extends Controller
 {
-    /**
-     * Récupère tous les tickets avec leurs informations générales.
-     *
-     * @return JsonResponse
-     */
-    public function index(): JsonResponse
+    public function index()
     {
-        try {
-            // Récupérer tous les tickets avec leurs informations générales
-            $tickets = BRecTickets::with('infosGenerales')
-                ->orderBy('libelle', 'asc')
-                ->get();
-
-            // Formater les données pour le frontend
-            $formattedTickets = $tickets->map(function ($ticket) {
-                return [
-                    'id' => $ticket->id,
-                    'libelle' => $ticket->libelle,
-                    'documentAfornir' => $ticket->documentAfornir,
-                    'direction' => $ticket->direction,
-                    'created_at' => $ticket->created_at,
-                    'updated_at' => $ticket->updated_at,
-                    'infos_generales' => $ticket->infosGenerales->map(function ($info) {
-                        return [
-                            'id' => $info->id,
-                            'libelle' => $info->libelle,
-                            'key_attirubut' => $info->key_attirubut,
-                        ];
-                    })
-                ];
-            });
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Tickets récupérés avec succès',
-                'data' => $formattedTickets
-            ], 200);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors de la récupération des tickets',
-                'error' => $e->getMessage()
-            ], 500);
-        }
+        $tickets = BRecTickets::with('infosGenerales')->get();
+        
+        $formattedTickets = $tickets->map(function ($ticket) {
+            return [
+                'id' => $ticket->id,
+                'libelle' => $ticket->libelle,
+                'description' => $ticket->description,
+                'infos_generales' => $ticket->infosGenerales->map(function ($info) {
+                    return [
+                        'id' => $info->id,
+                        'libelle' => $info->libelle,
+                        'type' => $info->type,
+                        'obligatoire' => $info->obligatoire,
+                        'key_attribut' => $info->key_attribut
+                    ];
+                })
+            ];
+        });
+        
+        return response()->json([
+            'success' => true,
+            'data' => $formattedTickets
+        ]);
     }
 
     /**
@@ -315,7 +302,7 @@ class TicketController extends Controller
             $request->validate([
                 'ticket_id' => 'required|integer|exists:t_rec_tickets,id',
                 'description' => 'required|string|min:10',
-                'type_details' => 'required|string', // JSON string
+                // 'type_details' => 'required|string', // JSON string
                 'files.*' => 'nullable|file|max:10240' // 10MB max per file
             ], [
                 'ticket_id.required' => 'L\'identifiant du ticket est requis.',
@@ -335,7 +322,7 @@ class TicketController extends Controller
             DB::table('t_rec_tickets')
                 ->where('id', $ticketId)
                 ->update([
-                    'description_complete' => $description,
+                    'description' => $description,
                     'status' => 'COMPLETE',
                     'updated_at' => now()
                 ]);
@@ -400,5 +387,173 @@ class TicketController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Finalise une réclamation en sauvegardant la description, les fichiers, types et détails.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function saveComplete(Request $request): JsonResponse
+    {
+        try {
+            // Validation de la requête
+            $validatedData = $request->validate([
+                'tticket_id' => 'required|integer|exists:t_rec_tickets,id',
+                'description' => 'nullable|string|max:5000',
+                'type_selection' => 'required|array|min:1',
+                'type_selection.*.type_id' => 'nullable|integer',
+                'type_selection.*.libelle' => 'required|string|max:255',
+                'type_selection.*.details' => 'nullable|array',
+                'type_selection.*.details.*.detail_id' => 'nullable|integer',
+                'type_selection.*.details.*.libelle' => 'required|string|max:255',
+                'type_selection.*.autre' => 'nullable|string|max:500',
+                'files' => 'nullable|array',
+                'files.*' => 'file|max:2048|mimes:jpg,jpeg,png,gif,pdf,doc,docx,txt', // 2MB max
+            ], [
+                'tticket_id.required' => 'L\'identifiant du ticket est requis.',
+                'tticket_id.exists' => 'Le ticket spécifié n\'existe pas.',
+                'type_selection.required' => 'Au moins un type doit être sélectionné.',
+                'type_selection.min' => 'Au moins un type doit être sélectionné.',
+                'files.*.max' => 'La taille du fichier ne peut pas dépasser 2 MB.',
+                'files.*.mimes' => 'Le format du fichier n\'est pas autorisé.',
+            ]);
+
+            // Démarrer une transaction
+            DB::beginTransaction();
+
+            $tticketId = $validatedData['tticket_id'];
+            $typesSavedCount = 0;
+
+            // Mise à jour de la description du ticket
+            if (isset($validatedData['description'])) {
+                TRecTicket::where('id', $tticketId)
+                    ->update(['description' => $validatedData['description']]);
+            }
+
+            // Gestion des fichiers uploadés
+            if ($request->hasFile('files')) {
+                $this->handleTicketFileUploads($request->file('files'), $tticketId);
+            }
+
+            // Insertion des types et détails
+            foreach ($validatedData['type_selection'] as $typeData) {
+                // Créer le type
+                $tRecType = TRecType::create([
+                    'tticket_id' => $tticketId,
+                    'b_rec_type_id' => $typeData['type_id'] ?? null,
+                    'libelle' => $typeData['libelle'],
+                ]);
+
+                $typesSavedCount++;
+
+                // Insérer les détails associés
+                if (isset($typeData['details']) && is_array($typeData['details'])) {
+                    foreach ($typeData['details'] as $detailData) {
+                        TRecDetail::create([
+                            't_rec_type_id' => $tRecType->id,
+                            'b_rec_detail_id' => $detailData['detail_id'] ?? null,
+                            'libelle' => $detailData['libelle'],
+                        ]);
+                    }
+                }
+
+                // Gérer le cas "autre" - insérer même sans b_rec_detail_id
+                if (isset($typeData['autre']) && !empty(trim($typeData['autre']))) {
+                    TRecDetail::create([
+                        't_rec_type_id' => $tRecType->id,
+                        'b_rec_detail_id' => null,
+                        'libelle' => trim($typeData['autre']),
+                    ]);
+                }
+            }
+
+            // Récupérer les informations du ticket pour la réponse
+            $ticket = TRecTicket::find($tticketId);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Réclamation complétée',
+                'data' => [
+                    't_rec_ticket_id' => $tticketId,
+                    'b_rec_ticket_id' => $ticket->bticket_id ?? null,
+                    'types_saved_count' => $typesSavedCount
+                ]
+            ], 200);
+
+        } catch (ValidationException $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreurs de validation',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la finalisation de la réclamation',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Gérer l'upload des fichiers pour un ticket.
+     *
+     * @param array $files
+     * @param int $tticketId
+     * @return void
+     */
+    private function handleTicketFileUploads(array $files, int $tticketId): void
+    {
+        foreach ($files as $file) {
+            if ($file->isValid()) {
+                // Générer un nom unique pour le fichier
+                $nomStockage = $this->generateUniqueFileName($file);
+
+                // Définir le chemin de stockage
+                $cheminStockage = 'tickets/' . date('Y/m');
+
+                // Stocker le fichier
+                $cheminComplet = $file->storeAs($cheminStockage, $nomStockage, 'public');
+
+                // Enregistrer les informations du fichier en base
+                TRecTicketFile::create([
+                    'ticket_id' => $tticketId,
+                    'nom_fichier' => $file->getClientOriginalName(),
+                    'chemin_fichier' => 'public/' . $cheminComplet,
+                    'taille_fichier' => $file->getSize(),
+                    'type_fichier' => $file->getClientMimeType(),
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Générer un nom de fichier unique.
+     *
+     * @param \Illuminate\Http\UploadedFile $file
+     * @return string
+     */
+    private function generateUniqueFileName($file): string
+    {
+        $extension = $file->getClientOriginalExtension();
+        $nomSansExtension = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+
+        // Nettoyer le nom du fichier
+        $nomSansExtension = Str::slug($nomSansExtension, '_');
+
+        do {
+            // Créer un nom de fichier avec timestamp et UUID court
+            $timestamp = now()->format('Ymd_His');
+            $uniqueId = substr(Str::uuid()->toString(), 0, 8);
+            $fileName = "{$nomSansExtension}_{$timestamp}_{$uniqueId}.{$extension}";
+        } while (Storage::disk('public')->exists("tickets/{$fileName}"));
+
+        return $fileName;
     }
 }
