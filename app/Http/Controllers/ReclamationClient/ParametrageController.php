@@ -40,6 +40,7 @@ class ParametrageController extends Controller
                     'libelle' => $ticket->libelle,
                     'documentAfornir' => $ticket->documentAfornir,
                     'direction' => $ticket->direction,
+                    'definition' => $ticket->definition,
                     'created_at' => $ticket->created_at,
                     'updated_at' => $ticket->updated_at,
                     'infos_generales' => $ticket->infosGenerales->map(function ($info) {
@@ -100,6 +101,7 @@ class ParametrageController extends Controller
                 'libelle' => 'required|string|max:255',
                 'documentAfornir' => 'nullable|string',
                 'direction' => 'required|string|exists:direction,DIRECTION',
+                'definition' => 'nullable|string',
                 'infos_generales' => 'nullable|array',
                 'infos_generales.*.libelle' => 'required|string',
                 'infos_generales.*.key_attribut' => 'required|boolean',
@@ -131,7 +133,8 @@ class ParametrageController extends Controller
                 $ticket = BRecTickets::create([
                     'libelle' => $request->libelle,
                     'documentAfornir' => $request->documentAfornir,
-                    'direction' => $request->direction
+                    'direction' => $request->direction,
+                    'definition' => $request->definition
                 ]);
 
                 // Enregistrer les infos générales si elles sont fournies
@@ -188,6 +191,7 @@ class ParametrageController extends Controller
                 'libelle' => 'required|string|max:255',
                 'documentAfornir' => 'nullable|string',
                 'direction' => 'required|string|exists:direction,DIRECTION',
+                'definition' => 'nullable|string',
                 'infos_generales' => 'nullable|array',
                 'infos_generales.*.libelle' => 'required|string',
                 'infos_generales.*.key_attribut' => 'required|boolean',
@@ -219,7 +223,8 @@ class ParametrageController extends Controller
                 $ticket->update([
                     'libelle' => $request->libelle,
                     'documentAfornir' => $request->documentAfornir,
-                    'direction' => $request->direction
+                    'direction' => $request->direction,
+                    'definition' => $request->definition
                 ]);
 
                 // Supprimer les anciennes infos générales
@@ -249,6 +254,79 @@ class ParametrageController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Erreur lors de la modification',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Afficher un ticket spécifique avec ses relations
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function show($id): JsonResponse
+    {
+        try {
+            // Récupérer le ticket avec ses relations
+            $ticket = BRecTickets::with([
+                'infosGenerales',
+                'types.details'
+            ])->find($id);
+
+            if (!$ticket) {
+                return response()->json([
+                    'error' => 'Ticket non trouvé',
+                    'message' => 'Le ticket avec l\'ID ' . $id . ' n\'existe pas.'
+                ], 404);
+            }
+
+            // Formater les données
+            $formattedTicket = [
+                'id' => $ticket->id,
+                'libelle' => $ticket->libelle,
+                'documentAfornir' => $ticket->documentAfornir,
+                'direction' => $ticket->direction,
+                'definition' => $ticket->definition,
+                'created_at' => $ticket->created_at,
+                'updated_at' => $ticket->updated_at,
+                'infos_generales' => $ticket->infosGenerales->map(function ($info) {
+                    return [
+                        'id' => $info->id,
+                        'libelle' => $info->libelle,
+                        'key_attribut' => $info->key_attirubut,
+                    ];
+                }),
+                'types' => $ticket->types->map(function ($type) {
+                    return [
+                        'id' => $type->id,
+                        'libelle' => $type->libelle,
+                        'direction' => $type->direction,
+                        'statut_direction' => $type->statut_direction,
+                        'created_at' => $type->created_at,
+                        'updated_at' => $type->updated_at,
+                        'details' => $type->details->map(function ($detail) {
+                            return [
+                                'id' => $detail->id,
+                                'libelle' => $detail->libelle,
+                                'direction' => $detail->direction,
+                                'statut_direction' => $detail->statut_direction,
+                                'created_at' => $detail->created_at,
+                                'updated_at' => $detail->updated_at,
+                            ];
+                        })
+                    ];
+                })
+            ];
+
+            return response()->json([
+                'success' => true,
+                'data' => $formattedTicket
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Erreur lors de la récupération du ticket',
                 'message' => $e->getMessage()
             ], 500);
         }

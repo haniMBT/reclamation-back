@@ -22,6 +22,7 @@ class BRecTickets extends Model
         'libelle',
         'documentAfornir',
         'direction',
+        'definition',
     ];
 
     /**
