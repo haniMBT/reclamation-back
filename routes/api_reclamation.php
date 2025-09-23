@@ -34,9 +34,9 @@ Route::middleware(['auth:sanctum', 'check.token.expiration'])->group(function ()
 
     // Routes pour le paramétrage
     Route::get('rec/parametrage', [ParametrageController::class, 'index'])->name('parametrage.index');
-Route::post('rec/parametrage', [ParametrageController::class, 'store'])->name('parametrage.store');
-Route::put('rec/parametrage/{id}', [ParametrageController::class, 'update'])->name('parametrage.update');
-Route::delete('rec/parametrage/{id}', [ParametrageController::class, 'destroy'])->name('parametrage.destroy');
+    Route::post('rec/parametrage', [ParametrageController::class, 'store'])->name('parametrage.store');
+    Route::put('rec/parametrage/{id}', [ParametrageController::class, 'update'])->name('parametrage.update');
+    Route::delete('rec/parametrage/{id}', [ParametrageController::class, 'destroy'])->name('parametrage.destroy');
 
     // Routes pour les tickets
     Route::get('rec/tickets', [TicketController::class, 'index'])->name('tickets.index');

@@ -38,6 +38,7 @@ class TicketController extends Controller
                     'libelle' => $ticket->libelle,
                     'documentAfornir' => $ticket->documentAfornir,
                     'direction' => $ticket->direction,
+                    'definition' => $ticket->definition,
                     'created_at' => $ticket->created_at,
                     'updated_at' => $ticket->updated_at,
                     'infos_generales' => $ticket->infosGenerales->map(function ($info) {
@@ -135,7 +136,7 @@ class TicketController extends Controller
             // Formater les données
             $formattedTickets = $tickets->getCollection()->map(function ($ticket) {
                 $baseTicket = $ticket->baseTicket;
-                
+
                 return [
                     'id' => $ticket->id,
                     'bticket_id' => $ticket->bticket_id,
@@ -220,7 +221,6 @@ class TicketController extends Controller
                 'user_id' => 'required|integer|min:1',
                 'direction' => 'required|string|in:ENTRANT,SORTANT',
                 'status' => 'required|string|in:OUVERT,FERME,EN_COURS',
-                'description' => 'required|string|min:10|max:1000',
                 'info_general_data' => 'required|array|min:1',
                 'info_general_data.*.info_general_id' => 'required|integer|min:1',
                 'info_general_data.*.value' => 'required|string|min:1|max:255',
@@ -228,9 +228,6 @@ class TicketController extends Controller
             ], [
                 'bticket_id.required' => 'L\'identifiant du ticket est requis.',
                 'bticket_id.exists' => 'Le ticket sélectionné n\'existe pas.',
-                'description.required' => 'La description est requise.',
-                'description.min' => 'La description doit contenir au moins 10 caractères.',
-                'description.max' => 'La description ne peut pas dépasser 1000 caractères.',
                 'info_general_data.required' => 'Les informations générales sont requises.',
                 'info_general_data.min' => 'Au moins une information générale est requise.',
                 'info_general_data.*.value.required' => 'La valeur du champ est requise.',
@@ -242,7 +239,6 @@ class TicketController extends Controller
             $userId = $request->input('user_id');
             $direction = $request->input('direction');
             $status = $request->input('status');
-            $description = $request->input('description');
             $infoGeneralData = $request->input('info_general_data');
 
             // Filtrer seulement les champs avec key_attribut = true
@@ -252,7 +248,7 @@ class TicketController extends Controller
 
             // Si aucun attribut clé à vérifier, insérer directement
             if ($keyAttributes->isEmpty()) {
-                return $this->insertTicketData($bticketId, $userId, $direction, $status, $description, $infoGeneralData);
+                return $this->insertTicketData($bticketId, $userId, $direction, $status, $infoGeneralData);
             }
 
             // Construire la requête pour vérifier les doublons
@@ -283,7 +279,7 @@ class TicketController extends Controller
             }
 
             // Aucun doublon trouvé, insérer les données
-            return $this->insertTicketData($bticketId, $userId, $direction, $status, $description, $infoGeneralData);
+            return $this->insertTicketData($bticketId, $userId, $direction, $status, $infoGeneralData);
 
         } catch (ValidationException $e) {
             return response()->json([
@@ -307,11 +303,10 @@ class TicketController extends Controller
      * @param int $userId
      * @param string $direction
      * @param string $status
-     * @param string $description
      * @param array $infoGeneralData
      * @return JsonResponse
      */
-    private function insertTicketData($bticketId, $userId, $direction, $status, $description, $infoGeneralData): JsonResponse
+    private function insertTicketData($bticketId, $userId, $direction, $status, $infoGeneralData): JsonResponse
     {
         try {
             DB::beginTransaction();
@@ -322,7 +317,6 @@ class TicketController extends Controller
                 'user_id' => $userId,
                 'direction' => $direction,
                 'status' => $status,
-                'description' => $description,
                 'created_at' => now(),
                 'updated_at' => now(),
                 'closed_at' => null
@@ -355,7 +349,6 @@ class TicketController extends Controller
                         'user_id' => $userId,
                         'direction' => $direction,
                         'status' => $status,
-                        'description' => $description,
                         'info_general_data' => $infoGeneralData
                     ]
                 ]
