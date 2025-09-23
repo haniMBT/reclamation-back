@@ -148,6 +148,8 @@ class TicketController extends Controller
                     'created_at' => $ticket->created_at,
                     'updated_at' => $ticket->updated_at,
                     'libelle' => $baseTicket ? $baseTicket->libelle : null,
+                    'definition' => $baseTicket ? $baseTicket->definition : null,
+                    'documentAfornir' => $baseTicket ? $baseTicket->documentAfornir : null,
                     'infos_generales' => $baseTicket && $baseTicket->infosGenerales ? $baseTicket->infosGenerales->map(function ($info) {
                         return [
                             'id' => $info->id,
