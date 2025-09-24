@@ -1023,6 +1023,45 @@ class TicketController extends Controller
     }
 
     /**
+     * Télécharger un fichier joint à un ticket.
+     *
+     * @param int $fileId
+     * @return \Symfony\Component\HttpFoundation\StreamedResponse
+     */
+    public function downloadFile(int $fileId)
+    {
+        try {
+            // Récupérer le fichier
+            $fichier = TRecTicketFile::findOrFail($fileId);
+
+            // Vérifier que le fichier existe sur le disque
+            if (!Storage::exists($fichier->chemin_fichier)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Fichier non trouvé sur le serveur'
+                ], 404);
+            }
+
+            // Retourner le fichier en téléchargement
+            return Storage::download(
+                $fichier->chemin_fichier,
+                $fichier->nom_fichier,
+                [
+                    'Content-Type' => $fichier->type_fichier,
+                    'Content-Length' => $fichier->taille_fichier
+                ]
+            );
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors du téléchargement du fichier',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Générer un nom de fichier unique.
      *
      * @param \Illuminate\Http\UploadedFile $file

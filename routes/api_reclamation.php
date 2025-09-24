@@ -40,6 +40,7 @@ Route::middleware(['auth:sanctum', 'check.token.expiration'])->group(function ()
 
     // Routes pour les tickets
     Route::get('rec/tickets', [TicketController::class, 'index'])->name('tickets.index');
+    Route::get('rec/tickets/files/{fileId}/download', [TicketController::class, 'downloadFile'])->name('tickets.files.download');
     Route::get('rec/tickets/indexAll', [TicketController::class, 'indexAll'])->name('tickets.indexAll');
     Route::post('rec/tickets/check-duplicate', [TicketController::class, 'checkDuplicate'])->name('tickets.checkDuplicate');
     Route::get('rec/tickets/{ticketId}/complete-data', [TicketController::class, 'getCompleteTicketData'])->name('tickets.getCompleteData');
