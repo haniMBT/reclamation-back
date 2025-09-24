@@ -44,7 +44,11 @@ Route::middleware(['auth:sanctum', 'check.token.expiration'])->group(function ()
     Route::post('rec/tickets/check-duplicate', [TicketController::class, 'checkDuplicate'])->name('tickets.checkDuplicate');
     Route::get('rec/tickets/{ticketId}/complete-data', [TicketController::class, 'getCompleteTicketData'])->name('tickets.getCompleteData');
     Route::post('rec/tickets/complete', [TicketController::class, 'completeTicket'])->name('tickets.complete');
-     Route::post('rec/tickets/save-complete', [TicketController::class, 'saveComplete'])->name('tickets.saveComplete');
+    Route::post('rec/tickets/save-complete', [TicketController::class, 'saveComplete'])->name('tickets.saveComplete');
+    
+    // Routes pour l'édition des tickets créés
+    Route::get('rec/tickets/{id}/edit', [TicketController::class, 'getTicketForEdit'])->name('tickets.getForEdit');
+    Route::put('rec/tickets/{id}', [TicketController::class, 'updateTicket'])->name('tickets.update');
 
     // Routes pour les types et détails (API centralisée)
     Route::put('rec/ticket/{ticketId}/types', [TypeController::class, 'storeOrUpdateGlobal'])->name('type.storeOrUpdateGlobal');

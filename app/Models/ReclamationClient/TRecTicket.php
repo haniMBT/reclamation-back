@@ -59,7 +59,21 @@ class TRecTicket extends Model
         return $this->hasMany(TRecType::class, 'tticket_id', 'id');
     }
 
-    // Note: Relation infos() sera ajoutée quand TRecInfoGeneral sera créé
+    /**
+     * Get the informations générales for this ticket.
+     */
+    public function infosGenerales(): HasMany
+    {
+        return $this->hasMany(TRecInfoGeneral::class, 'tticket_id', 'id');
+    }
+
+    /**
+     * Get the info generals for this ticket.
+     */
+    public function infos(): HasMany
+    {
+        return $this->hasMany(TRecInfoGeneral::class, 'tticket_id', 'id');
+    }
 
     /**
      * Get the user that owns this ticket.
