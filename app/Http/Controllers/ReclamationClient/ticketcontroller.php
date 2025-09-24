@@ -330,7 +330,7 @@ class TicketController extends Controller
                 DB::table('t_rec_info_general')->insert([
                     'tticket_id' => $ticketId,
                     'info_general_id' => $infoData['info_general_id'],
-                    'libelle' => $infoData['value'],
+                    'libelle' => $infoData['libelle'],
                     'value' => $infoData['value'],
                     'key_attribut' => $infoData['key_attribut'],
                     'created_at' => now(),
@@ -967,7 +967,7 @@ class TicketController extends Controller
                         TRecInfoGeneral::create([
                             'tticket_id' => $ticket->id,
                             'info_general_id' => $infoData['id'],
-                            'libelle' => trim($infoData['valeur']),
+                            'libelle' => isset($infoData['libelle']) ? trim($infoData['libelle']) : '',
                             'value' => trim($infoData['valeur']),
                             'key_attribut' => true,
                         ]);
