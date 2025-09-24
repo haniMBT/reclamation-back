@@ -49,6 +49,7 @@ Route::middleware(['auth:sanctum', 'check.token.expiration'])->group(function ()
     // Routes pour l'édition des tickets créés
     Route::get('rec/tickets/{id}/edit', [TicketController::class, 'getTicketForEdit'])->name('tickets.getForEdit');
     Route::put('rec/tickets/{id}', [TicketController::class, 'updateTicket'])->name('tickets.update');
+    Route::post('rec/tickets/{id}', [TicketController::class, 'updateTicket'])->name('tickets.update.post');
 
     // Routes pour les types et détails (API centralisée)
     Route::put('rec/ticket/{ticketId}/types', [TypeController::class, 'storeOrUpdateGlobal'])->name('type.storeOrUpdateGlobal');

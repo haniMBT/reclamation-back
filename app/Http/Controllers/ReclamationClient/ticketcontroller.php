@@ -9,6 +9,7 @@ use App\Models\ReclamationClient\TRecType;
 use App\Models\ReclamationClient\TRecDetail;
 use App\Models\ReclamationClient\FichierClient;
 use App\Models\ReclamationClient\TRecTicketFile;
+use App\Models\ReclamationClient\TRecInfoGeneral;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -877,10 +878,20 @@ class TicketController extends Controller
                 $typeSelection = json_decode($typeSelection, true);
             }
 
+            //  return response()->json([
+            //         'message' => $request->all()
+            //     ], 404);
             // Décoder les infos_generales s'il est en JSON
             $infosGenerales = $request->input('infos_generales');
             if (is_string($infosGenerales)) {
                 $infosGenerales = json_decode($infosGenerales, true);
+            }
+
+            // Décoder files_to_delete s'il est en JSON
+            $filesToDelete = $request->input('files_to_delete');
+            if (is_string($filesToDelete)) {
+                $filesToDelete = json_decode($filesToDelete, true);
+                $request->merge(['files_to_delete' => $filesToDelete]);
             }
 
             // Validation de la requête
@@ -934,6 +945,15 @@ class TicketController extends Controller
                         ]);
                     }
                 }
+
+                // Traiter la valeur "autre" si elle existe
+                if (isset($typeData['autre']) && !empty(trim($typeData['autre']))) {
+                    TRecDetail::create([
+                        't_rec_type_id' => $tRecType->id,
+                        'b_rec_detail_id' => null,
+                        'libelle' => trim($typeData['autre']),
+                    ]);
+                }
             }
 
             // Mettre à jour les informations générales
@@ -949,7 +969,7 @@ class TicketController extends Controller
                             'info_general_id' => $infoData['id'],
                             'libelle' => trim($infoData['valeur']),
                             'value' => trim($infoData['valeur']),
-                            'key_attribut' => 'updated',
+                            'key_attribut' => true,
                         ]);
                     }
                 }
