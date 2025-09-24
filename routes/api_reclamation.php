@@ -51,6 +51,7 @@ Route::middleware(['auth:sanctum', 'check.token.expiration'])->group(function ()
     Route::get('rec/tickets/{id}/edit', [TicketController::class, 'getTicketForEdit'])->name('tickets.getForEdit');
     Route::put('rec/tickets/{id}', [TicketController::class, 'updateTicket'])->name('tickets.update');
     Route::post('rec/tickets/{id}', [TicketController::class, 'updateTicket'])->name('tickets.update.post');
+    Route::delete('rec/tickets/{id}', [TicketController::class, 'destroy'])->name('tickets.destroy');
 
     // Routes pour les types et détails (API centralisée)
     Route::put('rec/ticket/{ticketId}/types', [TypeController::class, 'storeOrUpdateGlobal'])->name('type.storeOrUpdateGlobal');

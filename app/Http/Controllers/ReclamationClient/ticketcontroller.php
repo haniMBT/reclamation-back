@@ -1084,4 +1084,69 @@ class TicketController extends Controller
 
         return $fileName;
     }
+
+    /**
+     * Supprimer un ticket créé et toutes ses relations (tables t_rec_ seulement)
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function destroy($id): JsonResponse
+    {
+        try {
+            // Vérifier que le ticket créé existe
+            $ticket = TRecTicket::find($id);
+
+            if (!$ticket) {
+                return response()->json([
+                    'error' => 'Ticket non trouvé',
+                    'message' => 'Le ticket avec l\'ID ' . $id . ' n\'existe pas.'
+                ], 404);
+            }
+
+            DB::beginTransaction();
+
+            // Supprimer les fichiers associés au ticket
+            foreach ($ticket->files as $file) {
+                // Supprimer le fichier physique
+                if (Storage::exists($file->chemin_fichier)) {
+                    Storage::delete($file->chemin_fichier);
+                }
+                // Supprimer l'enregistrement en base
+                $file->delete();
+            }
+
+            // Supprimer les détails des types du ticket
+            foreach ($ticket->types as $type) {
+                $type->details()->delete();
+            }
+
+            // Supprimer les types du ticket
+            $ticket->types()->delete();
+
+            // Supprimer les informations générales du ticket
+            $ticket->infosGenerales()->delete();
+
+            // Supprimer le ticket
+            $ticket->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Ticket supprimé avec succès',
+                'data' => [
+                    'deleted_ticket_id' => $id
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'error' => 'Erreur lors de la suppression',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
 }
