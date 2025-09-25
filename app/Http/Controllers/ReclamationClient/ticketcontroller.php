@@ -995,6 +995,9 @@ class TicketController extends Controller
                 $this->handleTicketFileUploads($request->file('files'), $ticket->id);
             }
 
+            // Forcer la mise à jour du champ updated_at du ticket principal
+            $ticket->touch();
+
             DB::commit();
 
             return response()->json([
