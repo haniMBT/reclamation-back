@@ -36,6 +36,7 @@ class TRecTicket extends Model
         'user_id',
         'direction',
         'status',
+        'objet',
         'description',
         'closed_at',
     ];

@@ -224,6 +224,7 @@ class TicketController extends Controller
                 'user_id' => 'required|integer|min:1',
                 'direction' => 'required|string|in:ENTRANT,SORTANT',
                 'status' => 'required|string|in:OUVERT,FERME,EN_COURS',
+                'objet' => 'nullable|string|min:1|max:255',
                 'info_general_data' => 'required|array|min:1',
                 'info_general_data.*.info_general_id' => 'required|integer|min:1',
                 'info_general_data.*.value' => 'required|string|min:1|max:255',
@@ -231,6 +232,8 @@ class TicketController extends Controller
             ], [
                 'bticket_id.required' => 'L\'identifiant du ticket est requis.',
                 'bticket_id.exists' => 'Le ticket sélectionné n\'existe pas.',
+                'objet.min' => 'L\'objet ne peut pas être vide.',
+                'objet.max' => 'L\'objet ne peut pas dépasser 255 caractères.',
                 'info_general_data.required' => 'Les informations générales sont requises.',
                 'info_general_data.min' => 'Au moins une information générale est requise.',
                 'info_general_data.*.value.required' => 'La valeur du champ est requise.',
@@ -242,6 +245,7 @@ class TicketController extends Controller
             $userId = $request->input('user_id');
             $direction = $request->input('direction');
             $status = $request->input('status');
+            $objet = $request->input('objet');
             $infoGeneralData = $request->input('info_general_data');
 
             // Filtrer seulement les champs avec key_attribut = true
@@ -251,7 +255,7 @@ class TicketController extends Controller
 
             // Si aucun attribut clé à vérifier, insérer directement
             if ($keyAttributes->isEmpty()) {
-                return $this->insertTicketData($bticketId, $userId, $direction, $status, $infoGeneralData);
+                return $this->insertTicketData($bticketId, $userId, $direction, $status, $infoGeneralData, $objet);
             }
 
             // Construire la requête pour vérifier les doublons
@@ -282,7 +286,7 @@ class TicketController extends Controller
             }
 
             // Aucun doublon trouvé, insérer les données
-            return $this->insertTicketData($bticketId, $userId, $direction, $status, $infoGeneralData);
+            return $this->insertTicketData($bticketId, $userId, $direction, $status, $infoGeneralData, $objet);
 
         } catch (ValidationException $e) {
             return response()->json([
@@ -307,9 +311,10 @@ class TicketController extends Controller
      * @param string $direction
      * @param string $status
      * @param array $infoGeneralData
+     * @param string|null $objet
      * @return JsonResponse
      */
-    private function insertTicketData($bticketId, $userId, $direction, $status, $infoGeneralData): JsonResponse
+    private function insertTicketData($bticketId, $userId, $direction, $status, $infoGeneralData, $objet = null): JsonResponse
     {
         try {
             DB::beginTransaction();
@@ -320,6 +325,7 @@ class TicketController extends Controller
                 'user_id' => $userId,
                 'direction' => $direction,
                 'status' => $status,
+                'objet' => $objet,
                 'created_at' => now(),
                 'updated_at' => now(),
                 'closed_at' => null
@@ -896,12 +902,15 @@ class TicketController extends Controller
 
             // Validation de la requête
             $validatedData = $request->validate([
+                'objet' => 'nullable|string|min:1|max:255',
                 'description' => 'nullable|string|max:5000',
                 'files' => 'nullable|array',
                 'files.*' => 'file|max:10240|mimes:jpg,jpeg,png,gif,pdf,doc,docx,txt',
                 'files_to_delete' => 'nullable|array',
                 'files_to_delete.*' => 'integer|exists:t_rec_ticket_files,id',
             ], [
+                'objet.min' => 'L\'objet ne peut pas être vide.',
+                'objet.max' => 'L\'objet ne peut pas dépasser 255 caractères.',
                 'files.*.max' => 'La taille du fichier ne peut pas dépasser 10 MB.',
                 'files.*.mimes' => 'Le format du fichier n\'est pas autorisé.',
             ]);
@@ -917,9 +926,16 @@ class TicketController extends Controller
 
             DB::beginTransaction();
 
-            // Mettre à jour la description du ticket
+            // Mettre à jour l'objet et la description du ticket
+            $updateData = [];
+            if (isset($validatedData['objet'])) {
+                $updateData['objet'] = trim($validatedData['objet']);
+            }
             if (isset($validatedData['description'])) {
-                $ticket->update(['description' => trim($validatedData['description'])]);
+                $updateData['description'] = trim($validatedData['description']);
+            }
+            if (!empty($updateData)) {
+                $ticket->update($updateData);
             }
 
             // Supprimer les anciens types et détails
