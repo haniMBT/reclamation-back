@@ -463,18 +463,23 @@ class TicketController extends Controller
         try {
             $request->validate([
                 'ticket_id' => 'required|integer|exists:t_rec_tickets,id',
+                'objet' => 'required|string|min:1|max:255',
                 'description' => 'required|string|min:10',
                 // 'type_details' => 'required|string', // JSON string
                 'files.*' => 'nullable|file|max:10240' // 10MB max per file
             ], [
                 'ticket_id.required' => 'L\'identifiant du ticket est requis.',
                 'ticket_id.exists' => 'Le ticket spécifié n\'existe pas.',
+                'objet.required' => 'L\'objet est obligatoire.',
+                'objet.min' => 'L\'objet ne peut pas être vide.',
+                'objet.max' => 'L\'objet ne peut pas dépasser 255 caractères.',
                 'description.required' => 'La description détaillée est requise.',
                 'description.min' => 'La description doit contenir au moins 10 caractères.',
                 'files.*.max' => 'Chaque fichier ne peut pas dépasser 10MB.'
             ]);
 
             $ticketId = $request->input('ticket_id');
+            $objet = $request->input('objet');
             $description = $request->input('description');
             $typeDetails = json_decode($request->input('type_details'), true);
 
@@ -484,6 +489,7 @@ class TicketController extends Controller
             DB::table('t_rec_tickets')
                 ->where('id', $ticketId)
                 ->update([
+                    'objet' => $objet,
                     'description' => $description,
                     'status' => 'COMPLETE',
                     'updated_at' => now()
@@ -531,7 +537,8 @@ class TicketController extends Controller
                 'message' => 'Réclamation finalisée avec succès',
                 'data' => [
                     'ticket_id' => $ticketId,
-                    'status' => 'COMPLETE'
+                    'status' => 'COMPLETE',
+                    'objet' => $objet
                 ]
             ], 200);
 
@@ -587,6 +594,7 @@ class TicketController extends Controller
             $validatedData = $request->validate([
                 'tticket_id' => 'required|integer|exists:t_rec_tickets,id',
                 'b_rec_ticket_id' => 'nullable|integer',
+                'objet' => 'required|string',
                 'description' => 'nullable|string|max:5000',
                 'files' => 'nullable|array',
                 'files.*' => 'file|max:10240|mimes:jpg,jpeg,png,gif,pdf,doc,docx,txt', // 10MB max
@@ -640,7 +648,10 @@ class TicketController extends Controller
             // Mise à jour de la description du ticket
             if (isset($validatedData['description']) && !empty(trim($validatedData['description']))) {
                 TRecTicket::where('id', $tticketId)
-                    ->update(['description' => trim($validatedData['description'])]);
+                    ->update([
+                        'description' => trim($validatedData['description']),
+                        'objet' => trim($validatedData['objet'])
+                    ]);
             }
 
             // Gestion des fichiers uploadés
@@ -770,6 +781,7 @@ class TicketController extends Controller
                 'direction' => $ticket->direction,
                 'status' => $ticket->status,
                 'description' => $ticket->description,
+                'objet' => $ticket->objet,
                 'created_at' => $ticket->created_at,
                 'updated_at' => $ticket->updated_at,
                 'base_ticket' => [
