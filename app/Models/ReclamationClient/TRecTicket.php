@@ -38,6 +38,7 @@ class TRecTicket extends Model
         'status',
         'objet',
         'description',
+        'is_creator_validated',
         'closed_at',
     ];
 

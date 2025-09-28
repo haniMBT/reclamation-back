@@ -146,6 +146,7 @@ class TicketController extends Controller
                     'direction' => $ticket->direction,
                     'status' => $ticket->status ?? 'OUVERT',
                     'description' => $ticket->description,
+                    'is_creator_validated' => $ticket->is_creator_validated,
                     'objet' => $ticket->objet,
                     'closed_at' => $ticket->closed_at,
                     'created_at' => $ticket->created_at,
@@ -1178,6 +1179,62 @@ class TicketController extends Controller
 
             return response()->json([
                 'error' => 'Erreur lors de la suppression',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Valide un ticket en mettant à jour le champ is_creator_validated
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function validateTicket(Request $request): JsonResponse
+    {
+        try {
+            // Validation des données d'entrée
+            $request->validate([
+                'ticket_id' => 'required|integer|exists:t_rec_tickets,id',
+            ]);
+
+            $ticketId = $request->input('ticket_id');
+
+            // Récupérer le ticket
+            $ticket = TRecTicket::findOrFail($ticketId);
+
+            // Vérifier si le ticket n'est pas déjà validé
+            if ($ticket->is_creator_validated) {
+                return response()->json([
+                    'error' => 'Le ticket est déjà validé',
+                    'message' => 'Ce ticket a déjà été validé'
+                ], 400);
+            }
+
+            // Mettre à jour le champ is_creator_validated à 1 et le statut à 'En attente'
+            $ticket->update([
+                'is_creator_validated' => 1,
+                'status' => 'En attente'
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Ticket validé avec succès',
+                'data' => [
+                    'ticket_id' => $ticketId,
+                    'is_creator_validated' => true
+                ]
+            ], 200);
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'error' => 'Erreur de validation',
+                'message' => $e->getMessage(),
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Erreur lors de la validation',
                 'message' => $e->getMessage()
             ], 500);
         }
