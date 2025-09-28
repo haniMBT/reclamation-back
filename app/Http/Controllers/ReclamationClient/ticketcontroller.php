@@ -96,6 +96,7 @@ class TicketController extends Controller
             if (!empty($search)) {
                 $query->where(function ($q) use ($search) {
                     $q->where('description', 'like', '%' . $search . '%')
+                      ->orWhere('objet', 'like', '%' . $search . '%')
                       ->orWhereHas('baseTicket', function ($subQ) use ($search) {
                           $subQ->where('libelle', 'like', '%' . $search . '%')
                                ->orWhere('direction', 'like', '%' . $search . '%');
@@ -145,6 +146,7 @@ class TicketController extends Controller
                     'direction' => $ticket->direction,
                     'status' => $ticket->status ?? 'OUVERT',
                     'description' => $ticket->description,
+                    'objet' => $ticket->objet,
                     'closed_at' => $ticket->closed_at,
                     'created_at' => $ticket->created_at,
                     'updated_at' => $ticket->updated_at,
