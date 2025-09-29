@@ -13,13 +13,13 @@ return new class extends Migration
     {
         Schema::create('t_rec_ticket_direction', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('ticket_id');
+            $table->unsignedBigInteger('tticket_id');
             $table->string('direction')->nullable();
             $table->string('statut_direction')->nullable();
             $table->string('source_orientation')->nullable();
             $table->string('type_orientation')->nullable();
             $table->timestamps();
-            
+
             // Clé étrangère vers la table t_rec_tickets
             $table->foreign('ticket_id')->references('id')->on('t_rec_tickets')->onDelete('cascade');
         });

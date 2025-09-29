@@ -20,7 +20,7 @@ class TRecTicketDirection extends Model
      * @var array<int, string>
      */
     protected $fillable = [
-        'ticket_id',
+        'tticket_id',
         'direction',
         'statut_direction',
         'source_orientation',

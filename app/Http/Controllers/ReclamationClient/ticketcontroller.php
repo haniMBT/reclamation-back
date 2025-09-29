@@ -12,6 +12,7 @@ use App\Models\ReclamationClient\BRecDetail;
 use App\Models\ReclamationClient\FichierClient;
 use App\Models\ReclamationClient\TRecTicketFile;
 use App\Models\ReclamationClient\TRecInfoGeneral;
+use Illuminate\Support\Facades\Auth;
 use App\Models\ReclamationClient\TRecTicketDirection;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -79,6 +80,9 @@ class TicketController extends Controller
     public function indexAll(Request $request): JsonResponse
     {
         try {
+
+            $privilege = Auth::user()->scopePrivileges('liste_des_reclamation');
+
             $perPage = $request->get('per_page', 15);
             $page = $request->get('page', 1);
             $search = $request->get('q', '');
@@ -94,6 +98,22 @@ class TicketController extends Controller
                 'types.bRecType',
                 'types.details.bRecDetail'
             ]);
+
+            // Privilege
+            if (!empty($privilege)) {
+                if ($privilege->role == 'client') {
+                    $query->where('created_by', Auth::id());
+                } elseif ($privilege->role == 'employe_Répondeur') {
+                    $tticket_ids = TRecTicketDirection::where('direction', Auth::user()->direction)
+                        ->pluck('tticket_id');
+
+                    $query->where(function ($q) use ($tticket_ids) {
+                        $q->whereIn('t_rec_tickets.id', $tticket_ids)
+                        ->orWhere('t_rec_tickets.id', Auth::id());// created_by remplacer
+                    });
+
+                }
+            }
 
             // Filtrage par recherche globale
             if (!empty($search)) {
@@ -1217,7 +1237,7 @@ class TicketController extends Controller
 
             // 1. Récupérer la direction du ticket et l'insérer dans t_rec_ticket_direction
             TRecTicketDirection::create([
-                'ticket_id' => $ticketId,
+                'tticket_id' => $ticketId,
                 'direction' => $ticket->direction,
                 'statut_direction' => 'traitement',
                 'source_orientation' => $bticket->libelle,
@@ -1231,7 +1251,7 @@ class TicketController extends Controller
                     $bRecType = BRecType::find($tRecType->b_rec_type_id);
                     if ($bRecType) {
                         TRecTicketDirection::create([
-                            'ticket_id' => $ticketId,
+                            'tticket_id' => $ticketId,
                             'direction' => $bRecType->direction,
                             'statut_direction' => $bRecType->statut_direction,
                             'source_orientation' => $bRecType->libelle,
@@ -1248,7 +1268,7 @@ class TicketController extends Controller
                     $bRecDetail = BRecDetail::find($tRecDetail->b_rec_detail_id);
                     if ($bRecDetail) {
                         TRecTicketDirection::create([
-                            'ticket_id' => $ticketId,
+                            'tticket_id' => $ticketId,
                             'direction' => $bRecDetail->direction,
                             'statut_direction' => $bRecDetail->statut_direction,
                             'source_orientation' => $bRecDetail->libelle,
