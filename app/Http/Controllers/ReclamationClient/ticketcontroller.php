@@ -249,7 +249,7 @@ class TicketController extends Controller
 
             $bticketId = $request->input('bticket_id');
             $userId = $request->input('user_id');
-            $direction = $request->input('direction');
+            $direction = BRecTickets::find($bticketId)->direction;
             $status = $request->input('status');
             $objet = $request->input('objet');
             $infoGeneralData = $request->input('info_general_data');
@@ -1258,10 +1258,11 @@ class TicketController extends Controller
                 }
             }
 
-            // 4. Mettre à jour le champ is_creator_validated à 1 et le statut à 'En attente'
+            // 4. Mettre à jour le champ is_creator_validated à 1, le statut à 'En attente' et enregistrer la date de validation
             $ticket->update([
                 'is_creator_validated' => 1,
-                'status' => 'En attente'
+                'status' => 'En attente',
+                'date_validation_createur' => now()
             ]);
 
             return response()->json([

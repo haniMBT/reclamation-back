@@ -39,6 +39,7 @@ class TRecTicket extends Model
         'objet',
         'description',
         'is_creator_validated',
+        'date_validation_createur',
         'closed_at',
     ];
 
@@ -49,6 +50,7 @@ class TRecTicket extends Model
      */
     protected $casts = [
         'closed_at' => 'datetime',
+        'date_validation_createur' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
