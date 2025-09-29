@@ -7,9 +7,12 @@ use App\Models\ReclamationClient\BRecTickets;
 use App\Models\ReclamationClient\TRecTicket;
 use App\Models\ReclamationClient\TRecType;
 use App\Models\ReclamationClient\TRecDetail;
+use App\Models\ReclamationClient\BRecType;
+use App\Models\ReclamationClient\BRecDetail;
 use App\Models\ReclamationClient\FichierClient;
 use App\Models\ReclamationClient\TRecTicketFile;
 use App\Models\ReclamationClient\TRecInfoGeneral;
+use App\Models\ReclamationClient\TRecTicketDirection;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -1202,6 +1205,7 @@ class TicketController extends Controller
 
             // Récupérer le ticket
             $ticket = TRecTicket::findOrFail($ticketId);
+            $bticket = BRecTickets::findOrFail($ticket->bticket_id);
 
             // Vérifier si le ticket n'est pas déjà validé
             if ($ticket->is_creator_validated) {
@@ -1211,7 +1215,50 @@ class TicketController extends Controller
                 ], 400);
             }
 
-            // Mettre à jour le champ is_creator_validated à 1 et le statut à 'En attente'
+            // 1. Récupérer la direction du ticket et l'insérer dans t_rec_ticket_direction
+            TRecTicketDirection::create([
+                'ticket_id' => $ticketId,
+                'direction' => $ticket->direction,
+                'statut_direction' => 'traitement',
+                'source_orientation' => $bticket->libelle,
+                'type_orientation' => 'ticket'
+            ]);
+
+            // 2. Récupérer les types sélectionnés et leurs directions
+            $ticketTypes = TRecType::where('tticket_id', $ticketId)->get();
+            foreach ($ticketTypes as $tRecType) {
+                if ($tRecType->b_rec_type_id) {
+                    $bRecType = BRecType::find($tRecType->b_rec_type_id);
+                    if ($bRecType) {
+                        TRecTicketDirection::create([
+                            'ticket_id' => $ticketId,
+                            'direction' => $bRecType->direction,
+                            'statut_direction' => $bRecType->statut_direction,
+                            'source_orientation' => $bRecType->libelle,
+                            'type_orientation' => 'type'
+                        ]);
+                    }
+                }
+            }
+
+            // 3. Récupérer les détails sélectionnés et leurs directions
+            $ticketDetails = TRecDetail::whereIn('t_rec_type_id', $ticketTypes->pluck('id'))->get();
+            foreach ($ticketDetails as $tRecDetail) {
+                if ($tRecDetail->b_rec_detail_id) {
+                    $bRecDetail = BRecDetail::find($tRecDetail->b_rec_detail_id);
+                    if ($bRecDetail) {
+                        TRecTicketDirection::create([
+                            'ticket_id' => $ticketId,
+                            'direction' => $bRecDetail->direction,
+                            'statut_direction' => $bRecDetail->statut_direction,
+                            'source_orientation' => $bRecDetail->libelle,
+                            'type_orientation' => 'detail'
+                        ]);
+                    }
+                }
+            }
+
+            // 4. Mettre à jour le champ is_creator_validated à 1 et le statut à 'En attente'
             $ticket->update([
                 'is_creator_validated' => 1,
                 'status' => 'En attente'
