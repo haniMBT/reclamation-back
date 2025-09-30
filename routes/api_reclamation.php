@@ -5,6 +5,7 @@ use App\Http\Controllers\ReclamationClient\NatureController;
 use App\Http\Controllers\ReclamationClient\ParametrageController;
 use App\Http\Controllers\ReclamationClient\TicketController;
 use App\Http\Controllers\ReclamationClient\TypeController;
+use App\Http\Controllers\DirectionController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -56,5 +57,12 @@ Route::middleware(['auth:sanctum', 'check.token.expiration'])->group(function ()
 
     // Routes pour les types et détails (API centralisée)
     Route::put('rec/ticket/{ticketId}/types', [TypeController::class, 'storeOrUpdateGlobal'])->name('type.storeOrUpdateGlobal');
-    Route::put('rec/type/global/{ticketId}', [TypeController::class, 'storeOrUpdateGlobal'])->name('type.storeOrUpdateGlobalAlias');
+    Route::put('rec/type/global/{ticketId}', [TypeController::class, 'storeOrUpdateGlobalAlias'])->name('type.storeOrUpdateGlobalAlias');
+
+    // Routes pour les directions
+    Route::get('rec/directions', [DirectionController::class, 'index'])->name('directions.index');
+    Route::get('rec/directions/{id}', [DirectionController::class, 'show'])->name('directions.show');
+    Route::post('rec/directions', [DirectionController::class, 'store'])->name('directions.store');
+    Route::put('rec/directions/{id}', [DirectionController::class, 'update'])->name('directions.update');
+    Route::delete('rec/directions/{id}', [DirectionController::class, 'destroy'])->name('directions.destroy');
 });
