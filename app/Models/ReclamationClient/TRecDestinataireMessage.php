@@ -13,7 +13,7 @@ class TRecDestinataireMessage extends Model
 
     protected $fillable = [
         'message_id',
-        'direction_destinataire_recepteur',
+        'direction_destinataire',
         'statut'
     ];
 
@@ -25,13 +25,7 @@ class TRecDestinataireMessage extends Model
         return $this->belongsTo(TRecMessage::class, 'message_id');
     }
 
-    /**
-     * Relation avec la direction destinataire
-     */
-    public function directionDestinataire()
-    {
-        return $this->belongsTo(\App\Models\Direction::class, 'direction_destinataire_recepteur', 'NUMDIR');
-    }
+    // direction_destinataire est maintenant un champ text, pas de relation
 
     /**
      * Scope pour les messages non lus

@@ -89,7 +89,7 @@ class MessageController extends Controller
             foreach ($directionsDestinaires as $directionId) {
                 TRecDestinataireMessage::create([
                     'message_id' => $message->id,
-                    'direction_destinataire_recepteur' => $directionId,
+                    'direction_destinataire' => $directionId,
                     'statut' => 'non_lu' // Statut par défaut
                 ]);
             }
