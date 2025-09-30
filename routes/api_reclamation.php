@@ -5,6 +5,7 @@ use App\Http\Controllers\ReclamationClient\NatureController;
 use App\Http\Controllers\ReclamationClient\ParametrageController;
 use App\Http\Controllers\ReclamationClient\TicketController;
 use App\Http\Controllers\ReclamationClient\TypeController;
+use App\Http\Controllers\ReclamationClient\MessageController;
 use App\Http\Controllers\DirectionController;
 use Illuminate\Support\Facades\Route;
 
@@ -65,4 +66,11 @@ Route::middleware(['auth:sanctum', 'check.token.expiration'])->group(function ()
     Route::post('rec/directions', [DirectionController::class, 'store'])->name('directions.store');
     Route::put('rec/directions/{id}', [DirectionController::class, 'update'])->name('directions.update');
     Route::delete('rec/directions/{id}', [DirectionController::class, 'destroy'])->name('directions.destroy');
+
+    // Routes pour les messages
+    Route::get('rec/tickets/{ticketId}/messages', [MessageController::class, 'index'])->name('messages.index');
+    Route::post('rec/tickets/{ticketId}/messages', [MessageController::class, 'store'])->name('messages.store');
+    Route::get('rec/messages/{id}', [MessageController::class, 'show'])->name('messages.show');
+    Route::put('rec/messages/{id}/mark-as-read', [MessageController::class, 'markAsRead'])->name('messages.markAsRead');
+    Route::get('rec/messages/attachments/{id}/download', [MessageController::class, 'downloadAttachment'])->name('messages.downloadAttachment');
 });
