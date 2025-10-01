@@ -189,6 +189,59 @@ class MessageController extends Controller
     }
 
     /**
+     * Supprimer un message
+     */
+    public function destroy($ticketId, $messageId)
+    {
+        DB::beginTransaction();
+
+        try {
+            $message = TRecMessage::where('id', $messageId)
+                ->where('tticket_id', $ticketId)
+                ->first();
+
+            if (!$message) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Message non trouvé'
+                ], 404);
+            }
+
+            // Supprimer les fichiers associés du stockage
+            $fichiers = TRecFicherMessage::where('message_id', $messageId)->get();
+            foreach ($fichiers as $fichier) {
+                if (Storage::disk('public')->exists($fichier->chemin_fichier)) {
+                    Storage::disk('public')->delete($fichier->chemin_fichier);
+                }
+            }
+
+            // Supprimer les enregistrements de la base de données
+            // Les suppressions en cascade devraient gérer les destinataires et fichiers
+            // mais on les supprime explicitement pour être sûr
+            TRecDestinataireMessage::where('message_id', $messageId)->delete();
+            TRecFicherMessage::where('message_id', $messageId)->delete();
+            
+            // Supprimer le message principal
+            $message->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Message supprimé avec succès'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la suppression: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Télécharger un fichier joint
      */
     public function downloadAttachment($fileId)
