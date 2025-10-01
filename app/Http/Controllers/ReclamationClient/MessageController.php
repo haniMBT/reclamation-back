@@ -58,11 +58,11 @@ class MessageController extends Controller
         }
 
         DB::beginTransaction();
-        
+
         try {
             $user = Auth::user();
             $directionsDestinaires = json_decode($request->directions, true);
-            
+
             if (!is_array($directionsDestinaires) || empty($directionsDestinaires)) {
                 return response()->json([
                     'success' => false,
@@ -80,11 +80,14 @@ class MessageController extends Controller
                 'date_envoie' => now()
             ]);
 
+
+
             // 2. Créer les enregistrements destinataires dans t_rec_destinataires_messages
             foreach ($directionsDestinaires as $directionId) {
+
                 TRecDestinataireMessage::create([
                     'message_id' => $message->id,
-                    'direction_destinataire_recepteur' => $directionId,
+                    'direction_destinataire' => $directionId,
                     'statut' => 'non_lu' // Statut par défaut
                 ]);
             }
@@ -95,7 +98,7 @@ class MessageController extends Controller
                     // Stocker le fichier
                     $fileName = time() . '_' . $file->getClientOriginalName();
                     $filePath = $file->storeAs('messages/attachments', $fileName, 'public');
-                    
+
                     // Enregistrer dans la base de données
                     TRecFicherMessage::create([
                         'message_id' => $message->id,
@@ -122,7 +125,7 @@ class MessageController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de l\'envoi du message: ' . $e->getMessage()
@@ -137,7 +140,7 @@ class MessageController extends Controller
     {
         try {
             $message = TRecMessage::with(['destinataires', 'fichiers'])->findOrFail($id);
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $message
@@ -165,7 +168,7 @@ class MessageController extends Controller
 
             if ($destinataire) {
                 $destinataire->update(['statut' => 'lu']);
-                
+
                 return response()->json([
                     'success' => true,
                     'message' => 'Message marqué comme lu'
@@ -192,7 +195,7 @@ class MessageController extends Controller
     {
         try {
             $fichier = TRecFicherMessage::findOrFail($fileId);
-            
+
             if (!Storage::disk('public')->exists($fichier->chemin_fichier)) {
                 return response()->json([
                     'success' => false,
