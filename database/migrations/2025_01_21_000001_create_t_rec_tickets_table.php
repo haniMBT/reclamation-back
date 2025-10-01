@@ -17,7 +17,7 @@ return new class extends Migration
             $table->unsignedBigInteger('user_id')->comment('ID de l\'utilisateur qui a créé la réclamation');
             $table->string('direction')->nullable()->comment('Direction concernée');
             $table->enum('status', ['ouvert', 'en_cours', 'ferme', 'annule'])->default('ouvert')->comment('Statut de la réclamation');
-            $table->text('description')->comment('Description détaillée de la réclamation');
+            $table->text('description')->nullable()->comment('Description détaillée de la réclamation');
             $table->timestamp('closed_at')->nullable()->comment('Date de fermeture de la réclamation');
             $table->timestamps();
 
