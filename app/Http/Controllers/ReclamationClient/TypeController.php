@@ -106,7 +106,16 @@ class TypeController extends Controller
         }
     }
 
-
-
-
+    /**
+     * Alias pour la méthode storeOrUpdateGlobal
+     * Maintient la compatibilité avec les anciennes routes
+     *
+     * @param Request $request
+     * @param int $ticketId
+     * @return JsonResponse
+     */
+    public function storeOrUpdateGlobalAlias(Request $request, int $ticketId): JsonResponse
+    {
+        return $this->storeOrUpdateGlobal($request, $ticketId);
+    }
 }
