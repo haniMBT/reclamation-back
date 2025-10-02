@@ -22,9 +22,23 @@ class DirectionController extends Controller
                 ->where('t_rec_ticket_direction.tticket_id', $ticket_id)
                 ->get();
 
+             $directionsNonConcerne = Direction::select(
+                    'NUMDIR as id',
+                    'direction.DIRECTION as label',
+                    'direction.DIRECTION as value'
+                )
+                ->whereNotIn('direction.DIRECTION', function ($q) use ($ticket_id) {
+                    $q->select('t_rec_ticket_direction.direction')
+                    ->from('t_rec_ticket_direction')
+                    ->where('t_rec_ticket_direction.tticket_id', $ticket_id);
+                })
+                ->orderBy('direction.DIRECTION', 'asc')
+                ->get();
+
             return response()->json([
                 'success' => true,
                 'data' => $directions,
+                'directionsNonConcerne' => $directionsNonConcerne,
                 'message' => 'Directions récupérées avec succès'
             ], 200);
         } catch (\Exception $e) {
