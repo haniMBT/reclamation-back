@@ -98,7 +98,7 @@ class ParametrageController extends Controller
         try {
             // Validation des données
             $validator = Validator::make($request->all(), [
-                'libelle' => 'required|string|max:255',
+                'libelle' => 'required|string',
                 'documentAfornir' => 'nullable|string',
                 'direction' => 'required|string|exists:direction,DIRECTION',
                 'definition' => 'nullable|string',
@@ -178,7 +178,7 @@ class ParametrageController extends Controller
         try {
             // Vérifier que le ticket existe
             $ticket = BRecTickets::find($id);
-            
+
             if (!$ticket) {
                 return response()->json([
                     'error' => 'Ticket non trouvé',
@@ -188,7 +188,7 @@ class ParametrageController extends Controller
 
             // Validation des données
             $validator = Validator::make($request->all(), [
-                'libelle' => 'required|string|max:255',
+                'libelle' => 'required|string',
                 'documentAfornir' => 'nullable|string',
                 'direction' => 'required|string|exists:direction,DIRECTION',
                 'definition' => 'nullable|string',
@@ -343,7 +343,7 @@ class ParametrageController extends Controller
         try {
             // Vérifier que le ticket existe
             $ticket = BRecTickets::find($id);
-            
+
             if (!$ticket) {
                 return response()->json([
                     'error' => 'Ticket non trouvé',
@@ -380,7 +380,7 @@ class ParametrageController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             return response()->json([
                 'error' => 'Erreur lors de la suppression',
                 'message' => $e->getMessage()

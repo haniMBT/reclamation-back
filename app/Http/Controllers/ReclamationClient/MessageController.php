@@ -43,7 +43,7 @@ class MessageController extends Controller
     public function store(Request $request, $ticketId)
     {
         $validator = Validator::make($request->all(), [
-            'titre' => 'required|string|max:255',
+            'titre' => 'required|string',
             'description' => 'required|string',
             'directions' => 'required|string', // JSON string des directions destinataires
             'attachments.*' => 'file|max:10240' // 10MB max par fichier
@@ -220,7 +220,7 @@ class MessageController extends Controller
             // mais on les supprime explicitement pour être sûr
             TRecDestinataireMessage::where('message_id', $messageId)->delete();
             TRecFicherMessage::where('message_id', $messageId)->delete();
-            
+
             // Supprimer le message principal
             $message->delete();
 
@@ -233,7 +233,7 @@ class MessageController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la suppression: ' . $e->getMessage()

@@ -250,10 +250,10 @@ class TicketController extends Controller
                 'user_id' => 'required|integer|min:1',
                 'direction' => 'required|string|in:ENTRANT,SORTANT',
                 'status' => 'required|string|in:OUVERT,FERME,EN_COURS',
-                'objet' => 'nullable|string|min:1|max:255',
+                'objet' => 'nullable|string|min:1',
                 'info_general_data' => 'required|array|min:1',
                 'info_general_data.*.info_general_id' => 'required|integer|min:1',
-                'info_general_data.*.value' => 'required|string|min:1|max:255',
+                'info_general_data.*.value' => 'required|string|min:1',
                 'info_general_data.*.key_attribut' => 'required|boolean'
             ], [
                 'bticket_id.required' => 'L\'identifiant du ticket est requis.',
@@ -489,7 +489,7 @@ class TicketController extends Controller
         try {
             $request->validate([
                 'ticket_id' => 'required|integer|exists:t_rec_tickets,id',
-                'objet' => 'required|string|min:1|max:255',
+                'objet' => 'required|string|min:1',
                 'description' => 'required|string|min:10',
                 // 'type_details' => 'required|string', // JSON string
                 'files.*' => 'nullable|file|max:10240' // 10MB max per file
@@ -621,7 +621,7 @@ class TicketController extends Controller
                 'tticket_id' => 'required|integer|exists:t_rec_tickets,id',
                 'b_rec_ticket_id' => 'nullable|integer',
                 'objet' => 'required|string',
-                'description' => 'nullable|string|max:5000',
+                'description' => 'nullable|string',
                 'files' => 'nullable|array',
                 'files.*' => 'file|max:10240|mimes:jpg,jpeg,png,gif,pdf,doc,docx,txt', // 10MB max
             ], [
@@ -940,8 +940,8 @@ class TicketController extends Controller
 
             // Validation de la requête
             $validatedData = $request->validate([
-                'objet' => 'nullable|string|min:1|max:255',
-                'description' => 'nullable|string|max:5000',
+                'objet' => 'nullable|string|min:1',
+                'description' => 'nullable|string',
                 'files' => 'nullable|array',
                 'files.*' => 'file|max:10240|mimes:jpg,jpeg,png,gif,pdf,doc,docx,txt',
                 'files_to_delete' => 'nullable|array',

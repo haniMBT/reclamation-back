@@ -51,8 +51,8 @@ class BRecDetail extends Model
     {
         return [
             'id_btype' => 'required|exists:b_rec_type,id',
-            'libelle' => 'required|string|max:255',
-            'direction' => 'nullable|string|max:255',
+            'libelle' => 'required|string',
+            'direction' => 'nullable|string',
             'statut_direction' => ['nullable', Rule::in(self::STATUTS)],
         ];
     }

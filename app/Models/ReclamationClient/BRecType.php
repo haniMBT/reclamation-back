@@ -61,8 +61,8 @@ class BRecType extends Model
     {
         return [
             'id_btickes' => 'required|exists:b_rec_tickets,id',
-            'libelle' => 'required|string|max:255',
-            'direction' => 'nullable|string|max:255',
+            'libelle' => 'required|string',
+            'direction' => 'nullable|string',
             'statut_direction' => ['nullable', Rule::in(self::STATUTS)],
         ];
     }

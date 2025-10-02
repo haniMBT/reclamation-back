@@ -64,7 +64,7 @@ class Direction extends Model
     public static function validationRules(): array
     {
         return [
-            'DIRECTION' => 'required|string|max:255|unique:direction,DIRECTION',
+            'DIRECTION' => 'required|string|unique:direction,DIRECTION',
         ];
     }
 
@@ -74,7 +74,7 @@ class Direction extends Model
     public static function validationRulesForUpdate($id): array
     {
         return [
-            'DIRECTION' => 'required|string|max:255|unique:direction,DIRECTION,' . $id . ',NUMDIR',
+            'DIRECTION' => 'required|string|unique:direction,DIRECTION,' . $id . ',NUMDIR',
         ];
     }
 }
