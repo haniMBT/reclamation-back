@@ -17,7 +17,8 @@ class TRecMessage extends Model
         'texte',
         'direction_envoi',
         'sender_id',
-        'date_envoie'
+        'date_envoie',
+        'message_vers'
     ];
 
     protected $casts = [

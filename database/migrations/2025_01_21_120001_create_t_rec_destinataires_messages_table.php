@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('t_rec_destinataires_messages', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('message_id');
-            $table->text('direction_destinataire');
+            $table->text('direction_destinataire')->nullable();
             $table->string('statut')->default('non_lu');
             $table->timestamp('date_lecture')->nullable();
             $table->boolean('lu')->default(false);

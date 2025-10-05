@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ReclamationClient\TRecMessage;
 use App\Models\ReclamationClient\TRecDestinataireMessage;
 use App\Models\ReclamationClient\TRecFicherMessage;
+use App\Models\ReclamationClient\TRecTicket;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -76,19 +77,17 @@ class MessageController extends Controller
                 'titre' => $request->titre,
                 'texte' => $request->description,
                 'direction_envoi' => $user->direction ?? null, // Direction de l'utilisateur qui envoie
-                'sender_id' => $user->id, // ID de l'utilisateur qui envoie
-                'date_envoie' => now()
+                'sender_id' => $user->id,
+                'date_envoie' => now(),
+                // champ optionnel, pas défini pour store classique
             ]);
-
-
 
             // 2. Créer les enregistrements destinataires dans t_rec_destinataires_messages
             foreach ($directionsDestinaires as $directionId) {
-
                 TRecDestinataireMessage::create([
                     'message_id' => $message->id,
                     'direction_destinataire' => $directionId,
-                    'statut' => 'non_lu' // Statut par défaut
+                    'statut' => 'non_lu'
                 ]);
             }
 
@@ -129,6 +128,83 @@ class MessageController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de l\'envoi du message: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Envoyer une réponse à un ticket (sans directions sélectionnées)
+     */
+    public function reply(Request $request, $ticketId)
+    {
+        $validator = Validator::make($request->all(), [
+            'titre' => 'required|string',
+            'description' => 'required|string',
+            'attachments.*' => 'file|max:10240'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Données invalides',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            $user = Auth::user();
+            $ticket = TRecTicket::findOrFail($ticketId);
+            $isClient = ($user && $ticket && $user->id == $ticket->user_id);
+
+            // Créer le message principal
+            $message = TRecMessage::create([
+                'tticket_id' => $ticketId,
+                'titre' => $request->titre,
+                'texte' => $request->description,
+                'direction_envoi' => $isClient ? 'client' : ($user->direction ?? null),
+                'sender_id' => $user->id,
+                'date_envoie' => now(),
+                'message_vers' => $isClient ? 'client vers direction' : 'direction vers client',
+            ]);
+
+            // Destinataire "réponse" (sans direction ciblée)
+            TRecDestinataireMessage::create([
+                'message_id' => $message->id,
+                'direction_destinataire' => $isClient ? 'directions' : 'client',
+                'statut' => 'non_lu'
+            ]);
+
+            // Fichiers joints
+            if ($request->hasFile('attachments')) {
+                foreach ($request->file('attachments') as $file) {
+                    $fileName = time() . '_' . $file->getClientOriginalName();
+                    $filePath = $file->storeAs('messages/attachments', $fileName, 'public');
+
+                    TRecFicherMessage::create([
+                        'message_id' => $message->id,
+                        'nom_fichier' => $file->getClientOriginalName(),
+                        'nom_fichier_stocke' => $fileName,
+                        'chemin_fichier' => $filePath,
+                        'taille_fichier' => $file->getSize(),
+                        'type_mime' => $file->getMimeType(),
+                        'date_upload' => now()
+                    ]);
+                }
+            }
+
+            DB::commit();
+            $message->load(['destinataires', 'fichiers']);
+            return response()->json([
+                'success' => true,
+                'message' => 'Réponse envoyée avec succès',
+                'data' => $message
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l\'envoi de la réponse: ' . $e->getMessage()
             ], 500);
         }
     }
