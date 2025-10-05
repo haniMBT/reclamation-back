@@ -294,4 +294,50 @@ class DirectionController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Supprimer une ou plusieurs directions du ticket (t_rec_ticket_direction)
+     *
+     * @param Request $request
+     * @param int $ticketId
+     * @return JsonResponse
+     */
+    public function deleteTicketDirections(Request $request, int $ticketId): JsonResponse
+    {
+        try {
+            // Validation des données entrantes
+            $validated = $request->validate([
+                'directions' => 'required|array|min:1',
+                'directions.*' => 'required|string|min:2',
+            ]);
+
+            // Suppression de toutes les occurrences des directions sélectionnées pour ce ticket
+            $deletedCount = TRecTicketDirection::where('tticket_id', $ticketId)
+                ->whereIn('direction', $validated['directions'])
+                ->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => $deletedCount . ' direction(s) supprimée(s) du ticket',
+                'data' => [
+                    'deleted_count' => $deletedCount,
+                    'ticket_id' => $ticketId,
+                    'directions' => $validated['directions'],
+                ],
+            ], 200);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur de validation',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de la suppression des directions du ticket: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la suppression des directions du ticket',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
 }
