@@ -49,7 +49,7 @@ Route::middleware(['auth:sanctum', 'check.token.expiration'])->group(function ()
     Route::post('rec/tickets/complete', [TicketController::class, 'completeTicket'])->name('tickets.complete');
     Route::post('rec/tickets/save-complete', [TicketController::class, 'saveComplete'])->name('tickets.saveComplete');
     Route::post('rec/tickets/validate', [TicketController::class, 'validateTicket'])->name('tickets.validate');
-    
+
     // Routes pour l'édition des tickets créés
     Route::get('rec/tickets/{id}/edit', [TicketController::class, 'getTicketForEdit'])->name('tickets.getForEdit');
     Route::put('rec/tickets/{id}', [TicketController::class, 'updateTicket'])->name('tickets.update');
@@ -61,12 +61,11 @@ Route::middleware(['auth:sanctum', 'check.token.expiration'])->group(function ()
     Route::put('rec/type/global/{ticketId}', [TypeController::class, 'storeOrUpdateGlobalAlias'])->name('type.storeOrUpdateGlobalAlias');
 
     // Routes pour les directions
-    Route::get('rec/directions', [DirectionController::class, 'index'])->name('directions.index');
+    Route::get('rec/directions_ticket/{ticket_id}', [DirectionController::class, 'index'])->name('directions.index');
     Route::get('rec/directions/{id}', [DirectionController::class, 'show'])->name('directions.show');
     Route::post('rec/directions', [DirectionController::class, 'store'])->name('directions.store');
     Route::put('rec/directions/{id}', [DirectionController::class, 'update'])->name('directions.update');
     Route::delete('rec/directions/{id}', [DirectionController::class, 'destroy'])->name('directions.destroy');
-    Route::get('rec/tickets/{ticketId}/directions', [DirectionController::class, 'getDirectionsByTicket'])->name('directions.byTicket');
 
     // Routes pour les messages
     Route::get('rec/tickets/{ticketId}/messages', [MessageController::class, 'index'])->name('messages.index');
