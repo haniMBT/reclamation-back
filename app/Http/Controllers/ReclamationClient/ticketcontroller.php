@@ -1487,11 +1487,17 @@ class TicketController extends Controller
     public function closeTicket(Request $request, int $ticketId): JsonResponse
     {
         try {
+            // Validation: la conclusion est obligatoire
+            $request->validate([
+                'conclusion' => 'required|string'
+            ]);
+
             $ticket = TRecTicket::findOrFail($ticketId);
 
             $ticket->update([
                 'status' => 'clôturé',
-                'closed_at' => now()
+                'closed_at' => now(),
+                'conclusion' => $request->input('conclusion')
             ]);
 
             return response()->json([
@@ -1501,6 +1507,7 @@ class TicketController extends Controller
                     'ticket_id' => $ticketId,
                     'status' => $ticket->status,
                     'closed_at' => $ticket->closed_at,
+                    'conclusion' => $ticket->conclusion,
                 ]
             ], 200);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
