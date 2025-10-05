@@ -21,7 +21,7 @@ return new class extends Migration
             $table->timestamps();
 
             // Clé étrangère vers la table t_rec_tickets
-            $table->foreign('ticket_id')->references('id')->on('t_rec_tickets')->onDelete('cascade');
+            $table->foreign('tticket_id')->references('id')->on('t_rec_tickets')->onDelete('cascade');
         });
     }
 

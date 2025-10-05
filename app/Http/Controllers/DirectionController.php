@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Direction;
+use App\Models\ReclamationClient\TRecTicketDirection;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -14,36 +15,21 @@ class DirectionController extends Controller
      *
      * @return JsonResponse
      */
-    public function index($ticket_id): JsonResponse
+    public function index(): JsonResponse
     {
         try {
-            $directions = Direction::select('NUMDIR as id', 'direction.DIRECTION as label', 'direction.DIRECTION as value')
-                ->orderBy('direction.DIRECTION', 'asc')->join('t_rec_ticket_direction', 'direction.DIRECTION', '=', 't_rec_ticket_direction.direction')
-                ->where('t_rec_ticket_direction.tticket_id', $ticket_id)
-                ->get();
-
-             $directionsNonConcerne = Direction::select(
-                    'NUMDIR as id',
-                    'direction.DIRECTION as label',
-                    'direction.DIRECTION as value'
-                )
-                ->whereNotIn('direction.DIRECTION', function ($q) use ($ticket_id) {
-                    $q->select('t_rec_ticket_direction.direction')
-                    ->from('t_rec_ticket_direction')
-                    ->where('t_rec_ticket_direction.tticket_id', $ticket_id);
-                })
-                ->orderBy('direction.DIRECTION', 'asc')
+            $directions = Direction::select('NUMDIR as id', 'DIRECTION as label', 'DIRECTION as value')
+                ->orderBy('DIRECTION', 'asc')
                 ->get();
 
             return response()->json([
                 'success' => true,
                 'data' => $directions,
-                'directionsNonConcerne' => $directionsNonConcerne,
                 'message' => 'Directions récupérées avec succès'
             ], 200);
         } catch (\Exception $e) {
             Log::error('Erreur lors de la récupération des directions: ' . $e->getMessage());
-
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la récupération des directions',
@@ -79,7 +65,7 @@ class DirectionController extends Controller
             ], 200);
         } catch (\Exception $e) {
             Log::error('Erreur lors de la récupération de la direction: ' . $e->getMessage());
-
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la récupération de la direction',
@@ -118,7 +104,7 @@ class DirectionController extends Controller
             ], 422);
         } catch (\Exception $e) {
             Log::error('Erreur lors de la création de la direction: ' . $e->getMessage());
-
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la création de la direction',
@@ -167,7 +153,7 @@ class DirectionController extends Controller
             ], 422);
         } catch (\Exception $e) {
             Log::error('Erreur lors de la mise à jour de la direction: ' . $e->getMessage());
-
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la mise à jour de la direction',
@@ -202,10 +188,42 @@ class DirectionController extends Controller
             ], 200);
         } catch (\Exception $e) {
             Log::error('Erreur lors de la suppression de la direction: ' . $e->getMessage());
-
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la suppression de la direction',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Récupérer les directions liées à un ticket spécifique
+     *
+     * @param int $ticketId
+     * @return JsonResponse
+     */
+    public function getDirectionsByTicket(int $ticketId): JsonResponse
+    {
+        try {
+            $directions = TRecTicketDirection::select('direction as value', 'direction as label')
+                ->where('tticket_id', $ticketId)
+                ->whereNotNull('direction')
+                ->distinct()
+                ->orderBy('direction', 'asc')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $directions,
+                'message' => 'Directions du ticket récupérées avec succès'
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de la récupération des directions du ticket: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des directions du ticket',
                 'error' => $e->getMessage()
             ], 500);
         }

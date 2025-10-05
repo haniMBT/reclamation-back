@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -29,7 +30,7 @@ return new class extends Migration
             $table->index('info_general_id');
             $table->index('key_attribut');
             $table->index(['tticket_id', 'key_attribut']); // Index composite pour la vérification de doublons
-            $table->index(['info_general_id', 'value']); // Index composite pour les recherches par valeur
+            // Index sur value supprimé car le champ text est trop long pour un index composite 
 
             // Index unique pour éviter les doublons d'informations pour un même ticket
             $table->unique(['tticket_id', 'info_general_id'], 'unique_ticket_info');

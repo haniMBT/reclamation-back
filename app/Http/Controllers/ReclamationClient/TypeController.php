@@ -26,12 +26,12 @@ class TypeController extends Controller
         // Validation des données
         $validator = Validator::make($request->all(), [
             'types' => 'required|array',
-            'types.*.libelle' => 'required|string',
-            'types.*.direction' => 'nullable|string',
+            'types.*.libelle' => 'required|string|max:255',
+            'types.*.direction' => 'nullable|string|max:255',
             'types.*.statut_direction' => 'nullable|string|in:consultation,traitement',
             'types.*.details' => 'nullable|array',
-            'types.*.details.*.libelle' => 'required|string',
-            'types.*.details.*.direction' => 'nullable|string',
+            'types.*.details.*.libelle' => 'required|string|max:255',
+            'types.*.details.*.direction' => 'nullable|string|max:255',
             'types.*.details.*.statut_direction' => 'nullable|string|in:consultation,traitement',
         ]);
 
@@ -56,7 +56,7 @@ class TypeController extends Controller
                 BRecType::where('id_btickes', $ticketId)->delete();
 
                 $createdTypes = [];
-
+                
                 // Créer chaque nouveau type avec ses détails
                 foreach ($request->types as $typeData) {
                     // Créer le nouveau type

@@ -250,10 +250,10 @@ class TicketController extends Controller
                 'user_id' => 'required|integer|min:1',
                 'direction' => 'required|string|in:ENTRANT,SORTANT',
                 'status' => 'required|string|in:OUVERT,FERME,EN_COURS',
-                'objet' => 'nullable|string|min:1',
+                'objet' => 'nullable|string|min:1|max:255',
                 'info_general_data' => 'required|array|min:1',
                 'info_general_data.*.info_general_id' => 'required|integer|min:1',
-                'info_general_data.*.value' => 'required|string|min:1',
+                'info_general_data.*.value' => 'required|string|min:1|max:255',
                 'info_general_data.*.key_attribut' => 'required|boolean'
             ], [
                 'bticket_id.required' => 'L\'identifiant du ticket est requis.',
@@ -489,7 +489,7 @@ class TicketController extends Controller
         try {
             $request->validate([
                 'ticket_id' => 'required|integer|exists:t_rec_tickets,id',
-                'objet' => 'required|string|min:1',
+                'objet' => 'required|string|min:1|max:255',
                 'description' => 'required|string|min:10',
                 // 'type_details' => 'required|string', // JSON string
                 'files.*' => 'nullable|file|max:10240' // 10MB max per file
@@ -621,7 +621,7 @@ class TicketController extends Controller
                 'tticket_id' => 'required|integer|exists:t_rec_tickets,id',
                 'b_rec_ticket_id' => 'nullable|integer',
                 'objet' => 'required|string',
-                'description' => 'nullable|string',
+                'description' => 'nullable|string|max:5000',
                 'files' => 'nullable|array',
                 'files.*' => 'file|max:10240|mimes:jpg,jpeg,png,gif,pdf,doc,docx,txt', // 10MB max
             ], [
@@ -940,8 +940,8 @@ class TicketController extends Controller
 
             // Validation de la requête
             $validatedData = $request->validate([
-                'objet' => 'nullable|string|min:1',
-                'description' => 'nullable|string',
+                'objet' => 'nullable|string|min:1|max:255',
+                'description' => 'nullable|string|max:5000',
                 'files' => 'nullable|array',
                 'files.*' => 'file|max:10240|mimes:jpg,jpeg,png,gif,pdf,doc,docx,txt',
                 'files_to_delete' => 'nullable|array',
@@ -1304,6 +1304,175 @@ class TicketController extends Controller
             return response()->json([
                 'error' => 'Erreur lors de la validation',
                 'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Récupère les détails complets d'un ticket créé par un client
+     *
+     * @param int $ticketId
+     * @return JsonResponse
+     */
+    public function getTicketDetails(int $ticketId): JsonResponse
+    {
+        try {
+            // Récupérer le ticket avec toutes ses relations
+            $ticket = TRecTicket::with([
+                'types.bRecType',
+                'types.details.bRecDetail',
+                'infosGenerales.bRecInfoGeneral',
+                'fichiers',
+                'directions'
+            ])->find($ticketId);
+
+            if (!$ticket) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Ticket non trouvé'
+                ], 404);
+            }
+
+            // Récupérer le ticket de base pour les informations générales
+            $baseTicket = BRecTickets::with('infosGenerales')->find($ticket->bticket_id);
+
+            // Formater les données pour le frontend
+            $ticketDetails = [
+                'id' => $ticket->id,
+                'objet' => $ticket->objet,
+                'description' => $ticket->description,
+                'status' => $ticket->status,
+                'created_at' => $ticket->created_at,
+                'updated_at' => $ticket->updated_at,
+                'date_validation_createur' => $ticket->date_validation_createur,
+                'is_creator_validated' => $ticket->is_creator_validated,
+                
+                // Informations du ticket de base
+                'type_name' => $baseTicket ? $baseTicket->libelle : null,
+                'definition' => $baseTicket ? $baseTicket->definition : null,
+                'document_a_fournir' => $baseTicket ? $baseTicket->documentAfornir : null,
+                
+                // Types sélectionnés avec leurs détails
+                'types' => $ticket->types->map(function ($type) {
+                    return [
+                        'id' => $type->id,
+                        'libelle' => $type->bRecType ? $type->bRecType->libelle : null,
+                        'direction' => $type->bRecType ? $type->bRecType->direction : null,
+                        'statut_direction' => $type->bRecType ? $type->bRecType->statut_direction : null,
+                        'details' => $type->details->map(function ($detail) {
+                            return [
+                                'id' => $detail->id,
+                                'libelle' => $detail->bRecDetail ? $detail->bRecDetail->libelle : null,
+                                'direction' => $detail->bRecDetail ? $detail->bRecDetail->direction : null,
+                                'statut_direction' => $detail->bRecDetail ? $detail->bRecDetail->statut_direction : null,
+                            ];
+                        })
+                    ];
+                }),
+                
+                // Informations générales avec leurs valeurs
+                'info_general' => $ticket->infosGenerales->map(function ($info) {
+                    return [
+                        'id' => $info->id,
+                        'libelle' => $info->bRecInfoGeneral ? $info->bRecInfoGeneral->libelle : null,
+                        'key_attribut' => $info->bRecInfoGeneral ? $info->bRecInfoGeneral->key_attirubut : null,
+                        'value' => $info->value
+                    ];
+                }),
+                
+                // Fichiers joints
+                'fichiers' => $ticket->fichiers->map(function ($fichier) {
+                    return [
+                        'id' => $fichier->id,
+                        'nom_fichier' => $fichier->filename,
+                        'chemin' => $fichier->path,
+                        'taille_fichier' => $this->formatFileSize($fichier->size),
+                        'type_fichier' => $fichier->mime_type,
+                        'created_at' => $fichier->created_at
+                    ];
+                }),
+                
+                // Directions destinataires
+                'directions' => $ticket->directions->map(function ($direction) {
+                    return [
+                        'id' => $direction->id,
+                        'direction' => $direction->direction,
+                        'statut_direction' => $direction->statut_direction,
+                        'source_orientation' => $direction->source_orientation,
+                        'type_orientation' => $direction->type_orientation
+                    ];
+                })
+            ];
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Détails du ticket récupérés avec succès',
+                'data' => $ticketDetails
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des détails du ticket',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Formate la taille d'un fichier en format lisible
+     *
+     * @param int $size
+     * @return string
+     */
+    private function formatFileSize(int $size): string
+    {
+        if ($size >= 1073741824) {
+            return number_format($size / 1073741824, 2) . ' GB';
+        } elseif ($size >= 1048576) {
+            return number_format($size / 1048576, 2) . ' MB';
+        } elseif ($size >= 1024) {
+            return number_format($size / 1024, 2) . ' KB';
+        } else {
+            return $size . ' bytes';
+        }
+    }
+
+    /**
+     * Télécharge un fichier joint d'un ticket
+     *
+     * @param int $fileId
+     * @return \Illuminate\Http\Response
+     */
+    public function downloadTicketFile(int $fileId)
+    {
+        try {
+            // Récupérer le fichier
+            $file = TRecTicketFile::find($fileId);
+
+            if (!$file) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Fichier non trouvé'
+                ], 404);
+            }
+
+            // Vérifier si le fichier existe sur le disque
+            if (!Storage::disk('public')->exists($file->path)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Fichier non trouvé sur le serveur'
+                ], 404);
+            }
+
+            // Retourner le fichier en téléchargement
+            return Storage::disk('public')->download($file->path, $file->filename);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors du téléchargement du fichier',
+                'error' => $e->getMessage()
             ], 500);
         }
     }
