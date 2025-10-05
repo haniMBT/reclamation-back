@@ -62,6 +62,7 @@ Route::middleware(['auth:sanctum', 'check.token.expiration'])->group(function ()
 
     // Routes pour les directions
     Route::get('rec/directions_ticket/{ticket_id}', [DirectionController::class, 'index'])->name('directions.index');
+    Route::post('rec/directions_ticket/{ticket_id}', [DirectionController::class, 'storeTicketDirection'])->name('directions.storeTicketDirection');
     Route::get('rec/directions/{id}', [DirectionController::class, 'show'])->name('directions.show');
     Route::post('rec/directions', [DirectionController::class, 'store'])->name('directions.store');
     Route::put('rec/directions/{id}', [DirectionController::class, 'update'])->name('directions.update');

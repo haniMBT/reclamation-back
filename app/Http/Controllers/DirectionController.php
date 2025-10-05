@@ -7,6 +7,7 @@ use App\Models\ReclamationClient\TRecTicketDirection;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 class DirectionController extends Controller
 {
@@ -240,6 +241,56 @@ class DirectionController extends Controller
                 'success' => false,
                 'message' => 'Erreur lors de la récupération des directions du ticket',
                 'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Ajouter une direction au ticket (t_rec_ticket_direction)
+     *
+     * @param Request $request
+     * @param int $ticketId
+     * @return JsonResponse
+     */
+    public function storeTicketDirection(Request $request, int $ticketId): JsonResponse
+    {
+        try {
+            // Validation des données entrantes
+            $validated = $request->validate([
+                'direction' => 'required|string|min:2',
+                'statut_direction' => 'required|in:traitement,consultation',
+            ]);
+
+            // Récupérer la direction de l'utilisateur connecté pour source_orientation
+            $user = Auth::user();
+            $sourceOrientation = is_object($user) && isset($user->direction) ? $user->direction : null;
+
+            // Création de l'orientation direction du ticket
+            $created = TRecTicketDirection::create([
+                'tticket_id' => $ticketId,
+                'direction' => $validated['direction'],
+                'statut_direction' => $validated['statut_direction'],
+                'source_orientation' => $sourceOrientation,
+                'type_orientation' => 'direction',
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Direction ajoutée au ticket avec succès',
+                'data' => $created,
+            ], 201);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur de validation',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de l\'ajout de la direction au ticket: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l\'ajout de la direction au ticket',
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
