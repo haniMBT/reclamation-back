@@ -1476,4 +1476,45 @@ class TicketController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Clôture un ticket en mettant à jour le statut et la date de clôture.
+     *
+     * @param Request $request
+     * @param int $ticketId
+     * @return JsonResponse
+     */
+    public function closeTicket(Request $request, int $ticketId): JsonResponse
+    {
+        try {
+            $ticket = TRecTicket::findOrFail($ticketId);
+
+            $ticket->update([
+                'status' => 'clôturé',
+                'closed_at' => now()
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Ticket clôturé avec succès',
+                'data' => [
+                    'ticket_id' => $ticketId,
+                    'status' => $ticket->status,
+                    'closed_at' => $ticket->closed_at,
+                ]
+            ], 200);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ticket non trouvé',
+                'error' => $e->getMessage()
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la clôture du ticket',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }
