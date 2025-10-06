@@ -81,7 +81,7 @@ class TicketController extends Controller
     {
         try {
 
-            $privilege = Auth::user()->scopePrivileges('liste_des_reclamation');
+            $privilege = Auth::user()->scopePrivileges('liste_des_reclamations');
 
             $perPage = $request->get('per_page', 15);
             $page = $request->get('page', 1);
@@ -1346,12 +1346,12 @@ class TicketController extends Controller
                 'updated_at' => $ticket->updated_at,
                 'date_validation_createur' => $ticket->date_validation_createur,
                 'is_creator_validated' => $ticket->is_creator_validated,
-                
+
                 // Informations du ticket de base
                 'type_name' => $baseTicket ? $baseTicket->libelle : null,
                 'definition' => $baseTicket ? $baseTicket->definition : null,
                 'document_a_fournir' => $baseTicket ? $baseTicket->documentAfornir : null,
-                
+
                 // Types sélectionnés avec leurs détails
                 'types' => $ticket->types->map(function ($type) {
                     return [
@@ -1369,7 +1369,7 @@ class TicketController extends Controller
                         })
                     ];
                 }),
-                
+
                 // Informations générales avec leurs valeurs
                 'info_general' => $ticket->infosGenerales->map(function ($info) {
                     return [
@@ -1379,7 +1379,7 @@ class TicketController extends Controller
                         'value' => $info->value
                     ];
                 }),
-                
+
                 // Fichiers joints
                 'fichiers' => $ticket->fichiers->map(function ($fichier) {
                     return [
@@ -1391,7 +1391,7 @@ class TicketController extends Controller
                         'created_at' => $fichier->created_at
                     ];
                 }),
-                
+
                 // Directions destinataires
                 'directions' => $ticket->directions->map(function ($direction) {
                     return [
