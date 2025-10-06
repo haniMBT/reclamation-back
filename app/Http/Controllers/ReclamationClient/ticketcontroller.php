@@ -215,6 +215,7 @@ class TicketController extends Controller
                 'success' => true,
                 'message' => 'Tickets récupérés avec succès',
                 'data' => [
+                    'privilege' => $privilege,
                     'items' => $formattedTickets,
                     'meta' => [
                         'current_page' => $tickets->currentPage(),
@@ -1236,6 +1237,15 @@ class TicketController extends Controller
                 ], 400);
             }
 
+            // 1. direction CAB par defaut
+            TRecTicketDirection::create([
+                'tticket_id' => $ticketId,
+                'direction' => 'CAB',
+                'statut_direction' => 'traitement',
+                'source_orientation' => $bticket->libelle,
+                'type_orientation' => 'default'
+            ]);
+
             // 1. Récupérer la direction du ticket et l'insérer dans t_rec_ticket_direction
             TRecTicketDirection::create([
                 'tticket_id' => $ticketId,
@@ -1250,7 +1260,7 @@ class TicketController extends Controller
             foreach ($ticketTypes as $tRecType) {
                 if ($tRecType->b_rec_type_id) {
                     $bRecType = BRecType::find($tRecType->b_rec_type_id);
-                    if ($bRecType) {
+                    if ($bRecType && $bRecType->direction!=null) {
                         TRecTicketDirection::create([
                             'tticket_id' => $ticketId,
                             'direction' => $bRecType->direction,
@@ -1267,7 +1277,7 @@ class TicketController extends Controller
             foreach ($ticketDetails as $tRecDetail) {
                 if ($tRecDetail->b_rec_detail_id) {
                     $bRecDetail = BRecDetail::find($tRecDetail->b_rec_detail_id);
-                    if ($bRecDetail) {
+                    if ($bRecDetail && $bRecDetail->direction!=null) {
                         TRecTicketDirection::create([
                             'tticket_id' => $ticketId,
                             'direction' => $bRecDetail->direction,
