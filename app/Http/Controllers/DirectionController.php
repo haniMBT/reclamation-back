@@ -32,7 +32,8 @@ class DirectionController extends Controller
                 ->whereNotIn('direction.DIRECTION', function ($q) use ($ticket_id) {
                     $q->select('t_rec_ticket_direction.direction')
                     ->from('t_rec_ticket_direction')
-                    ->where('t_rec_ticket_direction.tticket_id', $ticket_id);
+                    ->where('t_rec_ticket_direction.tticket_id', $ticket_id)
+                    ->whereNotNull('t_rec_ticket_direction.direction');
                 })
                 ->orderBy('direction.DIRECTION', 'asc')
                 ->get();
