@@ -5,11 +5,13 @@ namespace App\Http\Controllers\ReclamationClient;
 use App\Http\Controllers\Controller;
 use App\Models\Direction;
 use App\Models\ReclamationClient\BRecTickets;
+use App\Models\ReclamationClient\TRecTicket;
 use App\Models\ReclamationClient\BRecInfoGeneral;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Auth;
 
 class ParametrageController extends Controller
 {
@@ -22,16 +24,38 @@ class ParametrageController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
+
+            $privilege = Auth::user()->scopePrivileges('parametrage');
+
             // Récupérer tous les tickets avec leurs relations
             $tickets = BRecTickets::with([
                 'infosGenerales',
                 'types.details'
-            ])->get();
+            ])
+            ->when(in_array($privilege->visibilite, ['P', 'L']), function ($query) {
+                $query->where('direction', Auth::user()->direction);
+            })
+            ->get()
+            ->map(function ($ticket) {
+                $exists = TRecTicket::where('bticket_id', $ticket->id)->exists();
+                $ticket->possibilite_suppression = $exists ? 0 : 1;
+                return $ticket;
+            });
 
-            // Récupérer toutes les directions (basé sur MainController)
             $directions = Direction::groupby('DIRECTION')
                 ->select('DIRECTION')
                 ->get();
+
+            $directions_visibilite = Direction::groupBy('DIRECTION')
+                ->select('DIRECTION')
+                ->whereNotIn('DIRECTION', function ($query) {
+                    $query->select('direction')
+                        ->from('b_rec_tickets');
+                });
+                if ($privilege->visibilite == 'P'|| $privilege->visibilite == 'L') {
+                $directions_visibilite= $directions_visibilite->where('direction', Auth::user()->direction);
+                }
+                $directions_visibilite= $directions_visibilite->get();
 
             // Formater les données pour une meilleure présentation
             $formattedTickets = $tickets->map(function ($ticket) {
@@ -40,6 +64,7 @@ class ParametrageController extends Controller
                     'libelle' => $ticket->libelle,
                     'documentAfornir' => $ticket->documentAfornir,
                     'direction' => $ticket->direction,
+                    'possibilite_suppression' => $ticket->possibilite_suppression,
                     'definition' => $ticket->definition,
                     'created_at' => $ticket->created_at,
                     'updated_at' => $ticket->updated_at,
@@ -75,7 +100,9 @@ class ParametrageController extends Controller
 
             $data = [
                 'tickets' => $formattedTickets,
-                'directions' => $directions
+                'directions' => $directions,
+                'directions_visibilite' => $directions_visibilite,
+                'privilege' => $privilege
             ];
 
             return response()->json($data, 200);
