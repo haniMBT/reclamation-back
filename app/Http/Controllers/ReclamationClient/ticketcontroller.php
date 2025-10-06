@@ -101,19 +101,20 @@ class TicketController extends Controller
 
             // Privilege
             if (!empty($privilege)) {
-                if ($privilege->role == 'client') {
-                    $query->where('created_by', Auth::id());
-                } elseif ($privilege->role == 'employe_Répondeur') {
-                    $tticket_ids = TRecTicketDirection::where('direction', Auth::user()->direction)
+                if ($privilege->role == 'employe_Répondeur') {
+                   if(Auth::user()->direction =  'CAB'){
+                        $tticket_ids = TRecTicketDirection::where('direction', Auth::user()->direction)
                         ->pluck('tticket_id');
-
-                    $query->where(function ($q) use ($tticket_ids) {
-                        $q->whereIn('t_rec_tickets.id', $tticket_ids)
-                        ->orWhere('t_rec_tickets.id', Auth::id());// created_by remplacer
-                    });
-
+                        $query->where(function ($q) use ($tticket_ids) {
+                            $q->whereIn('t_rec_tickets.id', $tticket_ids)
+                            ->orWhere('t_rec_tickets.user_id', Auth::id());
+                        });
+                    }
+                }else{ // esq tous les utilisateur en le droit de cree une reclamaation ou non
+                    $query->where('t_rec_tickets.user_id', Auth::id());
                 }
             }
+
 
             // Filtrage par recherche globale
             if (!empty($search)) {
