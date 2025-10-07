@@ -4,6 +4,7 @@ namespace App\Http\Controllers\ReclamationClient;
 
 use App\Http\Controllers\Controller;
 use App\Models\ReclamationClient\TRecMessage;
+use App\Models\ReclamationClient\TRecTicketDirection;
 use App\Models\ReclamationClient\TRecDestinataireMessage;
 use App\Models\ReclamationClient\TRecFicherMessage;
 use App\Models\ReclamationClient\TRecTicket;
@@ -24,20 +25,68 @@ class MessageController extends Controller
 
             $privilege = Auth::user()->scopePrivileges('message');
 
-            TRecTicket::where('id', $ticketId)
-            ->where('status', 'En attente')
-            ->where('user_id','!=', Auth::id())
-            ->update(['status' => 'En cours']);
+            $ticket = TRecTicket::find($ticketId);
+            if ($ticket && $ticket->status == 'En attente') {
+                $ticket->where('user_id','!=', Auth::id())
+                ->update(['status' => 'En cours']);
+            }
 
-            $messages = TRecMessage::with(['destinataires', 'fichiers'])
-                ->where('tticket_id', $ticketId)
+            $ticket_direction = TRecTicketDirection::where('tticket_id', $ticketId)
+            ->where('direction', auth::user()->direction)
+            ->first();
+
+            // Construire la requête de base (fichiers toujours chargés)
+            $messagesQuery = TRecMessage::with('fichiers')
+                ->where('tticket_id', $ticketId);
+
+            // Vérifier si l'utilisateur courant est l'auteur du ticket
+            if ($ticket->user_id == Auth::id()) {
+
+                // Cas 1 : l'utilisateur est un "employe_Répondeur"
+                if ($privilege->role == 'employe_Répondeur') {
+
+                // Cas 1 : l'utilisateur est un "employe_Répondeur" concerne par la reclamation
+                    if ($ticket_direction->direction == Auth::user()->direction) {
+
+                        // concerne par la reclamation
+                        $messagesQuery->with('destinataires');
+
+                    } else {
+
+                        // ne pas concerne par la reclamation, client ne voir que les messages destinés au client
+                        $messagesQuery->whereHas('destinataires', function ($q) {
+                            $q->where('direction_destinataire', 'client');
+                        })->with(['destinataires' => function ($q) {
+                            $q->where('direction_destinataire', 'client');
+                        }]);
+                    }
+
+                } else {
+                      // client : ne voir que les messages destinés au client
+                        $messagesQuery->whereHas('destinataires', function ($q) {
+                            $q->where('direction_destinataire', 'client');
+                        })->with(['destinataires' => function ($q) {
+                            $q->where('direction_destinataire', 'client');
+                        }]);
+                }
+
+            } else {
+                // Cas 3 : utilisateur ≠ créateur du ticket → on charge tout
+                $messagesQuery->with('destinataires');
+            }
+
+            // Final : tri puis récupération
+            $messages = $messagesQuery
                 ->orderBy('date_envoie', 'desc')
                 ->get();
+
 
             return response()->json([
                 'success' => true,
                 'data' => $messages,
-                'privilege' => $privilege
+                'privilege' => $privilege,
+                'ticket' => $ticket,
+                'ticket_direction' => $ticket_direction
             ]);
         } catch (\Exception $e) {
             return response()->json([
