@@ -21,6 +21,14 @@ class MessageController extends Controller
     public function index($ticketId)
     {
         try {
+
+            $privilege = Auth::user()->scopePrivileges('message');
+
+            TRecTicket::where('id', $ticketId)
+            ->where('status', 'En attente')
+            ->where('user_id','!=', Auth::id())
+            ->update(['status' => 'En cours']);
+
             $messages = TRecMessage::with(['destinataires', 'fichiers'])
                 ->where('tticket_id', $ticketId)
                 ->orderBy('date_envoie', 'desc')
@@ -28,7 +36,8 @@ class MessageController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $messages
+                'data' => $messages,
+                'privilege' => $privilege
             ]);
         } catch (\Exception $e) {
             return response()->json([

@@ -16,7 +16,7 @@ return new class extends Migration
             $table->unsignedBigInteger('bticket_id')->comment('ID du ticket de base (b_rec_tickets)');
             $table->unsignedBigInteger('user_id')->comment('ID de l\'utilisateur qui a créé la réclamation');
             $table->string('direction')->nullable()->comment('Direction concernée');
-            $table->enum('status', ['ouvert', 'en_cours', 'ferme', 'annule', 'En attente','clôturé'])->default('ouvert')->comment('Statut de la réclamation');
+            $table->enum('status', ['ouvert', 'En cours', 'ferme', 'annule', 'En attente','clôturé'])->default('ouvert')->comment('Statut de la réclamation');
             $table->text('description')->nullable()->comment('Description détaillée de la réclamation');
             $table->timestamp('closed_at')->nullable()->comment('Date de fermeture de la réclamation');
             $table->timestamps();
