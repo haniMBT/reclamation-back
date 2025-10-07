@@ -46,7 +46,7 @@ class MessageController extends Controller
                 if ($privilege->role == 'employe_Répondeur') {
 
                 // Cas 1 : l'utilisateur est un "employe_Répondeur" concerne par la reclamation
-                    if ($ticket_direction->direction == Auth::user()->direction) {
+                    if ($ticket_direction!=null && $ticket_direction->direction == Auth::user()->direction) {
 
                         // concerne par la reclamation
                         $messagesQuery->with('destinataires');

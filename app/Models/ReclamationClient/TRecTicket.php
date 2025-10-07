@@ -41,6 +41,7 @@ class TRecTicket extends Model
         'is_creator_validated',
         'date_validation_createur',
         'closed_at',
+        'closed_by',
         'conclusion',
     ];
 

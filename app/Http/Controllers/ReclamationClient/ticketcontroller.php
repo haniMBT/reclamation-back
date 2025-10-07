@@ -1508,6 +1508,7 @@ class TicketController extends Controller
             $ticket->update([
                 'status' => 'clôturé',
                 'closed_at' => now(),
+                'closed_by' => \Illuminate\Support\Facades\Auth::id(),
                 'conclusion' => $request->input('conclusion')
             ]);
 
