@@ -74,6 +74,7 @@ Route::middleware(['auth:sanctum', 'check.token.expiration'])->group(function ()
     Route::get('rec/tickets/{ticketId}/messages', [MessageController::class, 'index'])->name('messages.index');
     Route::post('rec/tickets/{ticketId}/messages', [MessageController::class, 'store'])->name('messages.store');
     Route::post('rec/tickets/{ticketId}/messages/reply', [MessageController::class, 'reply'])->name('messages.reply');
+    Route::post('rec/tickets/{ticketId}/messages/recour', [MessageController::class, 'recour'])->name('messages.recour');
     Route::get('rec/messages/{id}', [MessageController::class, 'show'])->name('messages.show');
     Route::put('rec/messages/{id}/mark-as-read', [MessageController::class, 'markAsRead'])->name('messages.markAsRead');
     Route::delete('rec/tickets/{ticketId}/messages/{id}', [MessageController::class, 'destroy'])->name('messages.destroy');

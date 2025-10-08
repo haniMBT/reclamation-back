@@ -191,6 +191,82 @@ class MessageController extends Controller
     }
 
     /**
+     * Envoyer un message de recours (direction_envoi = recour, message_vers = recour, destinataire = directions)
+     */
+    public function recour(Request $request, $ticketId)
+    {
+        $validator = Validator::make($request->all(), [
+            'titre' => 'required|string',
+            'description' => 'required|string',
+            'attachments.*' => 'file|max:10240'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Données invalides',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            $user = Auth::user();
+            $ticket = TRecTicket::findOrFail($ticketId);
+
+            // Créer le message principal avec les attributs spécifiques au recours
+            $message = TRecMessage::create([
+                'tticket_id' => $ticketId,
+                'titre' => $request->titre,
+                'texte' => $request->description,
+                'direction_envoi' => 'recour',
+                'sender_id' => $user->id,
+                'date_envoie' => now(),
+                'message_vers' => 'recour',
+            ]);
+
+            // Destinataire global "directions" (sans sélection individuelle)
+            TRecDestinataireMessage::create([
+                'message_id' => $message->id,
+                'direction_destinataire' => 'directions',
+                'statut' => 'non_lu'
+            ]);
+
+            // Fichiers joints
+            if ($request->hasFile('attachments')) {
+                foreach ($request->file('attachments') as $file) {
+                    $fileName = time() . '_' . $file->getClientOriginalName();
+                    $filePath = $file->storeAs('messages/attachments', $fileName, 'public');
+
+                    TRecFicherMessage::create([
+                        'message_id' => $message->id,
+                        'nom_fichier' => $file->getClientOriginalName(),
+                        'nom_fichier_stocke' => $fileName,
+                        'chemin_fichier' => $filePath,
+                        'taille_fichier' => $file->getSize(),
+                        'type_mime' => $file->getMimeType(),
+                        'date_upload' => now()
+                    ]);
+                }
+            }
+
+            DB::commit();
+            $message->load(['destinataires', 'fichiers']);
+            return response()->json([
+                'success' => true,
+                'message' => 'Message de recours envoyé avec succès',
+                'data' => $message
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l\'envoi du recours: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Envoyer une réponse à un ticket (sans directions sélectionnées)
      */
     public function reply(Request $request, $ticketId)
