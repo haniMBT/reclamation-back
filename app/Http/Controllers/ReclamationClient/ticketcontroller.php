@@ -102,14 +102,14 @@ class TicketController extends Controller
             // Privilege
             if (!empty($privilege)) {
                 if ($privilege->role == 'employe_Répondeur') {
-                   if(Auth::user()->direction =  'CAB'){
+                //    if(Auth::user()->direction == 'CAB'){
                         $tticket_ids = TRecTicketDirection::where('direction', Auth::user()->direction)
                         ->pluck('tticket_id');
                         $query->where(function ($q) use ($tticket_ids) {
                             $q->whereIn('t_rec_tickets.id', $tticket_ids)
                             ->orWhere('t_rec_tickets.user_id', Auth::id());
                         });
-                    }
+                    // }
                 }else{ // esq tous les utilisateur en le droit de cree une reclamaation ou non
                     $query->where('t_rec_tickets.user_id', Auth::id());
                 }
@@ -350,7 +350,7 @@ class TicketController extends Controller
             // Insérer dans t_rec_tickets
             $ticketId = DB::table('t_rec_tickets')->insertGetId([
                 'bticket_id' => $bticketId,
-                'user_id' => auth::user()->id,
+                'user_id' => $userId,
                 'direction' => $direction,
                 'status' => $status,
                 'objet' => $objet,

@@ -54,19 +54,23 @@ class MessageController extends Controller
                     } else {
 
                         // ne pas concerne par la reclamation, client ne voir que les messages destinés au client
-                        $messagesQuery->whereHas('destinataires', function ($q) {
-                            $q->where('direction_destinataire', 'client');
+                      $messagesQuery->whereHas('destinataires', function ($q) {
+                            $q->where('direction_destinataire', 'client')
+                            ->orWhere('direction_destinataire', 'directions');
                         })->with(['destinataires' => function ($q) {
-                            $q->where('direction_destinataire', 'client');
+                            $q->where('direction_destinataire', 'client')
+                            ->orWhere('direction_destinataire', 'directions');
                         }]);
                     }
 
                 } else {
                       // client : ne voir que les messages destinés au client
                         $messagesQuery->whereHas('destinataires', function ($q) {
-                            $q->where('direction_destinataire', 'client');
+                            $q->where('direction_destinataire', 'client')
+                            ->orWhere('direction_destinataire', 'directions');
                         })->with(['destinataires' => function ($q) {
-                            $q->where('direction_destinataire', 'client');
+                            $q->where('direction_destinataire', 'client')
+                            ->orWhere('direction_destinataire', 'directions');
                         }]);
                 }
 
@@ -212,7 +216,7 @@ class MessageController extends Controller
         DB::beginTransaction();
         try {
             $user = Auth::user();
-            $ticket = TRecTicket::findOrFail($ticketId);
+            $ticket = TRecTicket::findOrFail($ticketId)->updtete(['status' => 'Recours']);
 
             // Créer le message principal avec les attributs spécifiques au recours
             $message = TRecMessage::create([
