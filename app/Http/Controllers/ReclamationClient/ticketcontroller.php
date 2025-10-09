@@ -1506,7 +1506,7 @@ class TicketController extends Controller
             $ticket = TRecTicket::findOrFail($ticketId);
 
             $ticket->update([
-                'status' => 'clôturé',
+                'status' => $ticket->status == 'Recours' ? 'Recours clôturé' : 'clôturé',
                 'closed_at' => now(),
                 'closed_by' => \Illuminate\Support\Facades\Auth::id(),
                 'conclusion' => $request->input('conclusion')
