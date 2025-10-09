@@ -216,7 +216,7 @@ class MessageController extends Controller
         DB::beginTransaction();
         try {
             $user = Auth::user();
-            $ticket = TRecTicket::findOrFail($ticketId)->updtete(['status' => 'Recours']);
+            $ticket = TRecTicket::findOrFail($ticketId)->update(['status' => 'Recours']);
 
             // Créer le message principal avec les attributs spécifiques au recours
             $message = TRecMessage::create([
