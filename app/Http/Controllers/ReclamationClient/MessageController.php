@@ -27,7 +27,9 @@ class MessageController extends Controller
 
             $ticket = TRecTicket::find($ticketId);
             $ticket->user_crateur = $ticket->user()->first();
-            $ticket->privilege_crateur =  $ticket->user_crateur->scopePrivileges('message');
+            $ticket->privilege_crateur =  DB::table('p_privileges')->join('p_profils', 'p_profils.code', 'p_privileges.profil_code')
+            ->where('p_profils.code', $ticket->user_crateur->privilege)->where('volet','message')
+            ->select('p_privileges.*')->first();
             $ticket->ticket_direction_crateur = TRecTicketDirection::where('tticket_id', $ticketId)
                 ->where('direction', $ticket->user_crateur->direction)
                 ->first();
