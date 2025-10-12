@@ -18,6 +18,7 @@ return new class extends Migration
             $table->string('direction')->nullable()->comment('Direction concernée');
             $table->enum('status', ['ouvert', 'En cours', 'ferme', 'annule', 'En attente','clôturé','Recours','Recours clôturé'])->default('ouvert')->comment('Statut de la réclamation');
             $table->text('description')->nullable()->comment('Description détaillée de la réclamation');
+            $table->text('reply_permission')->nullable()->comment('permission de repondre client et employe');
             $table->timestamp('closed_at')->nullable()->comment('Date de fermeture de la réclamation');
             $table->timestamps();
 

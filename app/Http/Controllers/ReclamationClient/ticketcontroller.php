@@ -356,6 +356,7 @@ class TicketController extends Controller
                 'objet' => $objet,
                 'created_at' => now(),
                 'updated_at' => now(),
+                'reply_permission' => 'employe_Répondeur',
                 'closed_at' => null
             ]);
 
@@ -1509,6 +1510,7 @@ class TicketController extends Controller
                 'status' => $ticket->status == 'Recours' ? 'Recours clôturé' : 'clôturé',
                 'closed_at' => now(),
                 'closed_by' => \Illuminate\Support\Facades\Auth::id(),
+                'reply_permission' => $ticket->status == 'Recours' ? 'employe_Répondeur' : $ticket->reply_permission,
                 'conclusion' => $request->input('conclusion')
             ]);
 

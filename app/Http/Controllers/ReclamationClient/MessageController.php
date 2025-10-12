@@ -307,6 +307,11 @@ class MessageController extends Controller
             $ticket = TRecTicket::findOrFail($ticketId);
             $isClient = ($user && $ticket && $user->id == $ticket->user_id);
 
+            $ticket->update([
+                'reply_permission' => $ticket->reply_permission == 'client' ? 'employe_Répondeur' : 'client',
+            ]);
+
+
             // Créer le message principal
             $message = TRecMessage::create([
                 'tticket_id' => $ticketId,
@@ -348,7 +353,8 @@ class MessageController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Réponse envoyée avec succès',
-                'data' => $message
+                'data' => $message,
+                'ticket' => $ticket
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();

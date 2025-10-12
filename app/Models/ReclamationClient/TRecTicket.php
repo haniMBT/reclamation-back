@@ -43,6 +43,7 @@ class TRecTicket extends Model
         'closed_at',
         'closed_by',
         'conclusion',
+        'reply_permission',
     ];
 
     /**
