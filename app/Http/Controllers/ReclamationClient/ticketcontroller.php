@@ -350,7 +350,7 @@ class TicketController extends Controller
             // Insérer dans t_rec_tickets
             $ticketId = DB::table('t_rec_tickets')->insertGetId([
                 'bticket_id' => $bticketId,
-                'user_id' => $userId,
+                'user_id' => auth::user()->id,
                 'direction' => $direction,
                 'status' => $status,
                 'objet' => $objet,
@@ -383,7 +383,7 @@ class TicketController extends Controller
                     'b_rec_ticket_id' => $bticketId,
                     'ticket_data' => [
                         'bticket_id' => $bticketId,
-                        'user_id' => $userId,
+                        'user_id' => auth::user()->id,
                         'direction' => $direction,
                         'status' => $status,
                         'info_general_data' => $infoGeneralData
