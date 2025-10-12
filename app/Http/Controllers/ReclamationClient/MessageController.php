@@ -26,14 +26,24 @@ class MessageController extends Controller
             $privilege = Auth::user()->scopePrivileges('message');
 
             $ticket = TRecTicket::find($ticketId);
+            $ticket->user_crateur = $ticket->user()->first();
+            $ticket->privilege_crateur =  $ticket->user_crateur->scopePrivileges('message');
+            $ticket->ticket_direction_crateur = TRecTicketDirection::where('tticket_id', $ticketId)
+                ->where('direction', $ticket->user_crateur->direction)
+                ->first();
+
             if ($ticket && $ticket->status == 'En attente') {
                 $ticket->where('user_id','!=', Auth::id())
                 ->update(['status' => 'En cours']);
             }
 
-            $ticket_direction = TRecTicketDirection::where('tticket_id', $ticketId)
-            ->where('direction', auth::user()->direction)
-            ->first();
+            if ($privilege->role == 'employe_Répondeur') {
+                $ticket_direction = TRecTicketDirection::where('tticket_id', $ticketId)
+                ->where('direction', auth::user()->direction)
+                ->first();
+            } else {
+                $ticket_direction = null;
+            }
 
             // Construire la requête de base (fichiers toujours chargés)
             $messagesQuery = TRecMessage::with('fichiers')
