@@ -1508,7 +1508,8 @@ class TicketController extends Controller
 
             $ticket->update([
                 'status' => $ticket->status == 'Recours' ? 'Recours clôturé' : 'clôturé',
-                'closed_at' => now(),
+                'closed_at' => $ticket->status == 'Recours' ? $ticket->closed_at : now(),
+                'date_cloture_recours' => $ticket->status == 'Recours' ? now() : $ticket->date_cloture_recours,
                 'closed_by' => \Illuminate\Support\Facades\Auth::id(),
                 'reply_permission' => $ticket->status == 'Recours' ? 'employe_Répondeur' : $ticket->reply_permission,
                 'conclusion' => $request->input('conclusion')

@@ -35,8 +35,15 @@ class MessageController extends Controller
                 ->first();
 
             if ($ticket && $ticket->status == 'En attente') {
+                $updateData = ['status' => 'En cours'];
+                
+                // Ajouter la date_en_cours seulement si elle n'est pas déjà définie
+                if (is_null($ticket->date_en_cours)) {
+                    $updateData['date_en_cours'] = now();
+                }
+                
                 $ticket->where('user_id','!=', Auth::id())
-                ->update(['status' => 'En cours']);
+                ->update($updateData);
             }
 
             if ($privilege->role == 'employe_Répondeur') {
@@ -228,7 +235,16 @@ class MessageController extends Controller
         DB::beginTransaction();
         try {
             $user = Auth::user();
-            $ticket = TRecTicket::findOrFail($ticketId)->update(['status' => 'Recours']);
+            $ticket = TRecTicket::findOrFail($ticketId);
+            
+            $updateData = ['status' => 'Recours'];
+            
+            // Ajouter la date_recours seulement si elle n'est pas déjà définie
+            if (is_null($ticket->date_recours)) {
+                $updateData['date_recours'] = now();
+            }
+            
+            $ticket->update($updateData);
 
             // Créer le message principal avec les attributs spécifiques au recours
             $message = TRecMessage::create([

@@ -44,6 +44,9 @@ class TRecTicket extends Model
         'closed_by',
         'conclusion',
         'reply_permission',
+        'date_en_cours',
+        'date_recours',
+        'date_cloture_recours',
     ];
 
     /**
@@ -56,6 +59,9 @@ class TRecTicket extends Model
         'date_validation_createur' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'date_en_cours' => 'datetime',
+        'date_recours' => 'datetime',
+        'date_cloture_recours' => 'datetime',
     ];
 
     /**
