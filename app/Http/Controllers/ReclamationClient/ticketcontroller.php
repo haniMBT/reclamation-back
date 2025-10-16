@@ -178,6 +178,7 @@ class TicketController extends Controller
                     'closed_at' => $ticket->closed_at,
                     'created_at' => $ticket->created_at,
                     'updated_at' => $ticket->updated_at,
+                    'date_validation_createur' => $ticket->date_validation_createur,
                     'date_en_cours' => $ticket->date_en_cours,
                     'date_recours' => $ticket->date_recours,
                     'date_cloture_recours' => $ticket->date_cloture_recours,
