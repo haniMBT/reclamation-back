@@ -46,6 +46,9 @@ class TicketController extends Controller
                     'definition' => $ticket->definition,
                     'created_at' => $ticket->created_at,
                     'updated_at' => $ticket->updated_at,
+                    'date_en_cours' => $ticket->date_en_cours,
+                    'date_recours' => $ticket->date_recours,
+                    'date_cloture_recours' => $ticket->date_cloture_recours,
                     'infos_generales' => $ticket->infosGenerales->map(function ($info) {
                         return [
                             'id' => $info->id,
@@ -175,6 +178,9 @@ class TicketController extends Controller
                     'closed_at' => $ticket->closed_at,
                     'created_at' => $ticket->created_at,
                     'updated_at' => $ticket->updated_at,
+                    'date_en_cours' => $ticket->date_en_cours,
+                    'date_recours' => $ticket->date_recours,
+                    'date_cloture_recours' => $ticket->date_cloture_recours,
                     'libelle' => $baseTicket ? $baseTicket->libelle : null,
                     'definition' => $baseTicket ? $baseTicket->definition : null,
                     'documentAfornir' => $baseTicket ? $baseTicket->documentAfornir : null,
