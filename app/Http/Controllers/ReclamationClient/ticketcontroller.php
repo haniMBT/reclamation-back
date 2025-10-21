@@ -1300,9 +1300,9 @@ class TicketController extends Controller
 
             // 4. Mettre à jour le champ is_creator_validated à 1, le statut à 'En attente' et enregistrer la date de validation
             $ticket->update([
-                // 'is_creator_validated' => 1,
-                // 'status' => 'En attente',
-                // 'date_validation_createur' => now()
+                'is_creator_validated' => 1,
+                'status' => 'En attente',
+                'date_validation_createur' => now()
             ]);
 
             // 5. Créer les notifications automatiques pour les employés répondeurs des directions concernées
@@ -1517,15 +1517,20 @@ class TicketController extends Controller
             ]);
 
             $ticket = TRecTicket::findOrFail($ticketId);
+            $closedByUserId = \Illuminate\Support\Facades\Auth::id();
 
             $ticket->update([
                 'status' => $ticket->status == 'Recours' ? 'Recours clôturé' : 'clôturé',
                 'closed_at' => $ticket->status == 'Recours' ? $ticket->closed_at : now(),
                 'date_cloture_recours' => $ticket->status == 'Recours' ? now() : $ticket->date_cloture_recours,
-                'closed_by' => \Illuminate\Support\Facades\Auth::id(),
+                'closed_by' => $closedByUserId,
                 'reply_permission' => $ticket->status == 'Recours' ? 'employe_Répondeur' : $ticket->reply_permission,
                 'conclusion' => $request->input('conclusion')
             ]);
+
+            // Envoyer les notifications de clôture
+            $notificationService = new NotificationService();
+            $notificationService->createTicketClosureNotifications($ticket, $closedByUserId);
 
             return response()->json([
                 'success' => true,
