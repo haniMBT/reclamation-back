@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use App\Services\ReclamationClient\NotificationService;
 
 class TicketController extends Controller
 {
@@ -1299,10 +1300,14 @@ class TicketController extends Controller
 
             // 4. Mettre à jour le champ is_creator_validated à 1, le statut à 'En attente' et enregistrer la date de validation
             $ticket->update([
-                'is_creator_validated' => 1,
-                'status' => 'En attente',
-                'date_validation_createur' => now()
+                // 'is_creator_validated' => 1,
+                // 'status' => 'En attente',
+                // 'date_validation_createur' => now()
             ]);
+
+            // 5. Créer les notifications automatiques pour les employés répondeurs des directions concernées
+            $notificationService = new NotificationService();
+            $notificationService->createTicketValidationNotifications($ticket);
 
             return response()->json([
                 'success' => true,

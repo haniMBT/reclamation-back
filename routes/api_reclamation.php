@@ -6,6 +6,7 @@ use App\Http\Controllers\ReclamationClient\ParametrageController;
 use App\Http\Controllers\ReclamationClient\TicketController;
 use App\Http\Controllers\ReclamationClient\TypeController;
 use App\Http\Controllers\ReclamationClient\MessageController;
+use App\Http\Controllers\ReclamationClient\NotificationController;
 use App\Http\Controllers\DirectionController;
 use Illuminate\Support\Facades\Route;
 
@@ -79,4 +80,9 @@ Route::middleware(['auth:sanctum', 'check.token.expiration'])->group(function ()
     Route::put('rec/messages/{id}/mark-as-read', [MessageController::class, 'markAsRead'])->name('messages.markAsRead');
     Route::delete('rec/tickets/{ticketId}/messages/{id}', [MessageController::class, 'destroy'])->name('messages.destroy');
     Route::get('rec/messages/attachments/{id}/download', [MessageController::class, 'downloadAttachment'])->name('messages.downloadAttachment');
+
+    // Routes pour les notifications
+    Route::get('rec/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::put('rec/notifications/{id}/mark-as-read', [NotificationController::class, 'markAsRead'])->name('notifications.markAsRead');
+    Route::put('rec/notifications/mark-all-as-read', [NotificationController::class, 'markAllAsRead'])->name('notifications.markAllAsRead');
 });
