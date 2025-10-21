@@ -23,6 +23,7 @@ class TRecNotification extends Model
     protected $fillable = [
         'tticket_id',
         'sender_id',
+        'id_recepteur',
         'direction',
         'message',
         'type',
@@ -55,5 +56,13 @@ class TRecNotification extends Model
     public function sender(): BelongsTo
     {
         return $this->belongsTo(User::class, 'sender_id');
+    }
+
+    /**
+     * Get the user who receives the notification.
+     */
+    public function recepteur(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'id_recepteur');
     }
 }

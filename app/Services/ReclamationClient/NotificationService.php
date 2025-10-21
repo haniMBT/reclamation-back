@@ -45,6 +45,7 @@ class NotificationService
                     $this->createNotification([
                         'tticket_id' => $ticket->id,
                         'sender_id' => $ticket->user_id,
+                        'id_recepteur' => $targetUser->id,
                         'direction' => $direction,
                         'message' => "Le client {$clientName} a validé une réclamation.",
                         'type' => 'validation_ticket',

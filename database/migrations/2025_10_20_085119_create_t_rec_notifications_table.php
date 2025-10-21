@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('tticket_id');
             $table->unsignedInteger('sender_id')->nullable();
+            $table->unsignedInteger('id_recepteur')->nullable();
             $table->string('direction')->nullable();
             $table->text('message');
             $table->string('type', 100)->nullable();
@@ -27,8 +28,9 @@ return new class extends Migration
             $table->index('tticket_id');
             $table->index('is_read');
 
-            // Foreign key constraint
+            // Foreign key constraints
             $table->foreign('tticket_id')->references('id')->on('t_rec_tickets')->onDelete('cascade');
+            // Note: Foreign key for id_recepteur will be added separately due to potential type mismatch
         });
     }
 
