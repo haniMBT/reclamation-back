@@ -185,15 +185,61 @@ class NotificationService
     }
 
     /**
-     * Créer des notifications pour la création d'un recours (optionnel pour plus tard)
+     * Créer des notifications pour la création d'un recours
      *
      * @param TRecTicket $ticket
+     * @param int $recoursAuthorId ID de l'utilisateur qui a créé le recours
      * @return void
      */
-    public function createRecoursCreationNotifications(TRecTicket $ticket): void
+    public function createRecoursCreationNotifications(TRecTicket $ticket, int $recoursAuthorId): void
     {
-        // TODO: Implémenter la logique pour la création de recours
-        // Cette méthode pourra être utilisée plus tard
+        try {
+            // Charger la relation user si elle n'est pas déjà chargée
+            if (!$ticket->relationLoaded('user')) {
+                $ticket->load('user');
+            }
+
+            // Récupérer toutes les directions associées au ticket
+            $ticketDirections = TRecTicketDirection::where('tticket_id', $ticket->id)
+                ->pluck('direction')
+                ->unique()
+                ->toArray();
+
+            // Préparer les données du client
+            $clientName = $ticket->user
+                ? trim(($ticket->user->Prenom ?? '') . ' ' . ($ticket->user->Nom ?? ''))
+                : 'Client inconnu';
+
+            // Pour chaque direction, trouver un utilisateur avec le rôle employe_Répondeur
+            foreach ($ticketDirections as $direction) {
+                $targetUser = $this->findEmployeRepondeursByDirection($direction);
+
+                // Créer une notification seulement si un utilisateur valide est trouvé
+                // et que ce n'est pas l'auteur du recours
+                if ($targetUser && $targetUser->id != $recoursAuthorId) {
+                    $this->createNotification([
+                        'tticket_id' => $ticket->id,
+                        'sender_id' => $recoursAuthorId,
+                        'id_recepteur' => $targetUser->id,
+                        'direction' => $direction,
+                        'message' => "Le client {$clientName} a effectué un recours sur la réclamation \"{$ticket->objet}\".",
+                        'type' => 'creation_recours',
+                        'mode' => 'consultation',
+                        'meta' => [
+                            'ticket_title' => $ticket->objet,
+                            'client_name' => $clientName,
+                            'status' => $ticket->status
+                        ],
+                        'is_read' => 0
+                    ]);
+                }
+            }
+
+            Log::info("Notifications créées pour le recours du ticket {$ticket->id}");
+
+        } catch (\Exception $e) {
+            Log::error("Erreur lors de la création des notifications pour le recours du ticket {$ticket->id}: " . $e->getMessage());
+        }
     }
 
     /**

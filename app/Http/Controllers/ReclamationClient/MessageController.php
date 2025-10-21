@@ -8,6 +8,7 @@ use App\Models\ReclamationClient\TRecTicketDirection;
 use App\Models\ReclamationClient\TRecDestinataireMessage;
 use App\Models\ReclamationClient\TRecFicherMessage;
 use App\Models\ReclamationClient\TRecTicket;
+use App\Services\ReclamationClient\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -276,6 +277,10 @@ class MessageController extends Controller
                     ]);
                 }
             }
+
+            // Envoyer les notifications pour le recours
+            $notificationService = new NotificationService();
+            $notificationService->createRecoursCreationNotifications($ticket, $user->id);
 
             DB::commit();
             $message->load(['destinataires', 'fichiers']);
