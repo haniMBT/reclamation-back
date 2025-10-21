@@ -127,13 +127,21 @@ class NotificationService
 
             // 1. Envoyer une notification au créateur du ticket (s'il n'est pas celui qui a clôturé)
             if ($ticket->user_id && $ticket->user_id != $closedByUserId) {
+                // Adapter le message selon le type de clôture
+                $isRecoursClotured = $ticket->status === 'Recours clôturé';
+                $messageText = $isRecoursClotured 
+                    ? "Votre recours sur la réclamation \"{$ticket->objet}\" a été clôturé."
+                    : "Votre réclamation \"{$ticket->objet}\" a été clôturée.";
+                
+                $notificationType = $isRecoursClotured ? 'cloture_recours' : 'cloture_ticket';
+
                 $this->createNotification([
                     'tticket_id' => $ticket->id,
                     'sender_id' => $closedByUserId,
                     'id_recepteur' => $ticket->user_id,
                     'direction' =>$ticket->user ? $ticket->user->direction : null,
-                    'message' => "Votre réclamation \"{$ticket->objet}\" a été clôturée.",
-                    'type' => 'cloture_ticket',
+                    'message' => $messageText,
+                    'type' => $notificationType,
                     'mode' => 'consultation',
                     'meta' => [
                         'ticket_title' => $ticket->objet,
@@ -158,13 +166,21 @@ class NotificationService
                 // Créer une notification seulement si un utilisateur valide est trouvé
                 // et s'il n'est pas celui qui a effectué la clôture
                 if ($targetUser && $targetUser->id != $closedByUserId) {
+                    // Adapter le message selon le type de clôture
+                    $isRecoursClotured = $ticket->status === 'Recours clôturé';
+                    $messageText = $isRecoursClotured 
+                        ? "Le recours de {$clientName} sur la réclamation \"{$ticket->objet}\" a été clôturé."
+                        : "La réclamation de {$clientName} \"{$ticket->objet}\" a été clôturée.";
+                    
+                    $notificationType = $isRecoursClotured ? 'cloture_recours' : 'cloture_ticket';
+
                     $this->createNotification([
                         'tticket_id' => $ticket->id,
                         'sender_id' => $closedByUserId,
                         'id_recepteur' => $targetUser->id,
                         'direction' => $direction,
-                        'message' => "La réclamation de {$clientName} \"{$ticket->objet}\" a été clôturée.",
-                        'type' => 'cloture_ticket',
+                        'message' => $messageText,
+                        'type' => $notificationType,
                         'mode' => 'consultation',
                         'meta' => [
                             'ticket_title' => $ticket->objet,
