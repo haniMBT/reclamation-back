@@ -364,6 +364,10 @@ class MessageController extends Controller
                 }
             }
 
+            // Envoyer les notifications pour la réponse
+            $notificationService = new NotificationService();
+            $notificationService->createMessageReplyNotifications($ticket, $user->id, $isClient);
+
             DB::commit();
             $message->load(['destinataires', 'fichiers']);
             return response()->json([

@@ -269,4 +269,91 @@ class NotificationService
         // TODO: Implémenter la logique pour la clôture de recours
         // Cette méthode pourra être utilisée plus tard
     }
+
+    /**
+     * Créer des notifications pour les réponses aux messages
+     *
+     * @param TRecTicket $ticket
+     * @param int $senderId ID de l'utilisateur qui a envoyé la réponse
+     * @param bool $isClient True si l'expéditeur est le client, false si c'est un employé
+     * @return void
+     */
+    public function createMessageReplyNotifications(TRecTicket $ticket, int $senderId, bool $isClient): void
+    {
+        try {
+            // Charger la relation user si elle n'est pas déjà chargée
+            if (!$ticket->relationLoaded('user')) {
+                $ticket->load('user');
+            }
+
+            // Préparer les données du client
+            $clientName = $ticket->user
+                ? trim(($ticket->user->Prenom ?? '') . ' ' . ($ticket->user->Nom ?? ''))
+                : 'Client inconnu';
+
+            if ($isClient) {
+                // Cas 1: Le client envoie une réponse
+                // Envoyer une notification à tous les employés répondeurs concernés
+                
+                // Récupérer toutes les directions associées au ticket
+                $ticketDirections = TRecTicketDirection::where('tticket_id', $ticket->id)
+                    ->pluck('direction')
+                    ->unique()
+                    ->toArray();
+
+                // Pour chaque direction, trouver un utilisateur avec le rôle employe_Répondeur
+                foreach ($ticketDirections as $direction) {
+                    $targetUser = $this->findEmployeRepondeursByDirection($direction);
+
+                    // Créer une notification seulement si un utilisateur valide est trouvé
+                    // et que ce n'est pas l'expéditeur (ne devrait pas arriver car client != employé)
+                    if ($targetUser && $targetUser->id != $senderId) {
+                        $this->createNotification([
+                            'tticket_id' => $ticket->id,
+                            'sender_id' => $senderId,
+                            'id_recepteur' => $targetUser->id,
+                            'direction' => $direction,
+                            'message' => "Le client {$clientName} a répondu à la réclamation \"{$ticket->objet}\".",
+                            'type' => 'reponse_client',
+                            'mode' => 'consultation',
+                            'meta' => [
+                                'ticket_title' => $ticket->objet,
+                                'client_name' => $clientName,
+                                'status' => $ticket->status
+                            ],
+                            'is_read' => 0
+                        ]);
+                    }
+                }
+
+                Log::info("Notifications créées pour la réponse client du ticket {$ticket->id}");
+
+            } else {
+                // Cas 2: Un employé répondeur envoie une réponse
+                // Envoyer une notification uniquement au client (créateur du ticket)
+                
+                if ($ticket->user_id && $ticket->user_id != $senderId) {
+                    $this->createNotification([
+                        'tticket_id' => $ticket->id,
+                        'sender_id' => $senderId,
+                        'id_recepteur' => $ticket->user_id,
+                        'direction' => $ticket->user ? $ticket->user->direction : null,
+                        'message' => "Vous avez reçu une réponse à votre réclamation \"{$ticket->objet}\".",
+                        'type' => 'reponse_employe',
+                        'mode' => 'consultation',
+                        'meta' => [
+                            'ticket_title' => $ticket->objet,
+                            'status' => $ticket->status
+                        ],
+                        'is_read' => 0
+                    ]);
+
+                    Log::info("Notification créée pour la réponse employé du ticket {$ticket->id} vers le client {$ticket->user_id}");
+                }
+            }
+
+        } catch (\Exception $e) {
+            Log::error("Erreur lors de la création des notifications pour la réponse du ticket {$ticket->id}: " . $e->getMessage());
+        }
+    }
 }
