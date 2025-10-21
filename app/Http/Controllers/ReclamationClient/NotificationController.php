@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Auth;
 class NotificationController extends Controller
 {
     /**
-     * Récupère toutes les notifications de l'utilisateur connecté.
+     * Récupère toutes les notifications de l'utilisateur connecté (en tant que récepteur).
      *
      * @return JsonResponse
      */
@@ -20,7 +20,8 @@ class NotificationController extends Controller
         try {
             $userId = Auth::id();
 
-            $notifications = TRecNotification::where('sender_id', $userId)
+            $notifications = TRecNotification::where('id_recepteur', $userId)
+                ->with(['sender', 'recepteur']) // Charger les relations
                 ->orderBy('created_at', 'desc')
                 ->get();
 
@@ -50,7 +51,7 @@ class NotificationController extends Controller
             $userId = Auth::id();
 
             $notification = TRecNotification::where('id', $id)
-                ->where('sender_id', $userId)
+                ->where('id_recepteur', $userId)
                 ->first();
 
             if (!$notification) {
@@ -89,7 +90,7 @@ class NotificationController extends Controller
         try {
             $userId = Auth::id();
 
-            $updatedCount = TRecNotification::where('sender_id', $userId)
+            $updatedCount = TRecNotification::where('id_recepteur', $userId)
                 ->where('is_read', false)
                 ->update([
                     'is_read' => true,
