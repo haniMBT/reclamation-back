@@ -129,10 +129,10 @@ class NotificationService
             if ($ticket->user_id && $ticket->user_id != $closedByUserId) {
                 // Adapter le message selon le type de clôture
                 $isRecoursClotured = $ticket->status === 'Recours clôturé';
-                $messageText = $isRecoursClotured 
+                $messageText = $isRecoursClotured
                     ? "Votre recours sur la réclamation \"{$ticket->objet}\" a été clôturé."
                     : "Votre réclamation \"{$ticket->objet}\" a été clôturée.";
-                
+
                 $notificationType = $isRecoursClotured ? 'cloture_recours' : 'cloture_ticket';
 
                 $this->createNotification([
@@ -168,10 +168,10 @@ class NotificationService
                 if ($targetUser && $targetUser->id != $closedByUserId) {
                     // Adapter le message selon le type de clôture
                     $isRecoursClotured = $ticket->status === 'Recours clôturé';
-                    $messageText = $isRecoursClotured 
+                    $messageText = $isRecoursClotured
                         ? "Le recours de {$clientName} sur la réclamation \"{$ticket->objet}\" a été clôturé."
                         : "La réclamation de {$clientName} \"{$ticket->objet}\" a été clôturée.";
-                    
+
                     $notificationType = $isRecoursClotured ? 'cloture_recours' : 'cloture_ticket';
 
                     $this->createNotification([
@@ -294,7 +294,7 @@ class NotificationService
             if ($isClient) {
                 // Cas 1: Le client envoie une réponse
                 // Envoyer une notification à tous les employés répondeurs concernés
-                
+
                 // Récupérer toutes les directions associées au ticket
                 $ticketDirections = TRecTicketDirection::where('tticket_id', $ticket->id)
                     ->pluck('direction')
@@ -331,7 +331,7 @@ class NotificationService
             } else {
                 // Cas 2: Un employé répondeur envoie une réponse
                 // Envoyer une notification uniquement au client (créateur du ticket)
-                
+
                 if ($ticket->user_id && $ticket->user_id != $senderId) {
                     $this->createNotification([
                         'tticket_id' => $ticket->id,
@@ -354,6 +354,68 @@ class NotificationService
 
         } catch (\Exception $e) {
             Log::error("Erreur lors de la création des notifications pour la réponse du ticket {$ticket->id}: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Créer des notifications pour l'envoi de messages à d'autres directions
+     *
+     * @param TRecTicket $ticket
+     * @param int $senderId ID de l'utilisateur qui a envoyé le message
+     * @param array $directionsDestinaires Liste des directions destinataires
+     * @return void
+     */
+    public function createDirectionMessageNotifications(TRecTicket $ticket, int $senderId, array $directionsDestinaires): void
+    {
+
+        try {
+
+            // Charger la relation user si elle n'est pas déjà chargée
+            if (!$ticket->relationLoaded('user')) {
+                $ticket->load('user');
+            }
+
+            // Préparer les données de l'expéditeur
+            $senderUser = \App\Models\User::find($senderId);
+            $senderName = $senderUser
+                ? trim(($senderUser->Prenom ?? '') . ' ' . ($senderUser->Nom ?? ''))
+                : 'Utilisateur inconnu';
+
+
+            // Pour chaque direction destinataire
+            foreach ($directionsDestinaires as $direction) {
+                // Trouver les utilisateurs employés répondeurs de cette direction
+                $targetUser = $this->findEmployeRepondeursByDirection($direction);
+
+                // Créer une notification pour chaque utilisateur trouvé
+                // foreach ($targetUsers as $targetUser) {
+
+                    // Ne pas notifier l'expéditeur lui-même
+                    if ($targetUser->id != $senderId) {
+                        $this->createNotification([
+                            'tticket_id' => $ticket->id,
+                            'sender_id' => $senderId,
+                            'id_recepteur' => $targetUser->id,
+                            'direction' => $direction,
+                            'message' => "{$senderName} vous a envoyé un message concernant la réclamation \"{$ticket->objet}\".",
+                            'type' => 'message_direction',
+                            'mode' => 'consultation',
+                            'meta' => [
+                                'ticket_title' => $ticket->objet,
+                                'sender_name' => $senderName,
+                                'sender_direction' => $senderUser ? $senderUser->direction : null,
+                                'status' => $ticket->status
+                            ],
+                            'is_read' => 0
+                        ]);
+                    }
+                // }
+            }
+
+            Log::info("Notifications créées pour le message du ticket {$ticket->id} vers les directions: " . implode(', ', $directionsDestinaires));
+
+        } catch (\Exception $e) {
+            Log::error("Erreur lors de la création des notifications pour le message du ticket {$ticket->id}: " . $e->getMessage());
         }
     }
 }

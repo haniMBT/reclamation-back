@@ -191,6 +191,11 @@ class MessageController extends Controller
                 }
             }
 
+            // Envoyer les notifications pour le message à d'autres directions
+            $ticket = TRecTicket::findOrFail($ticketId);
+            $notificationService = new NotificationService();
+            $notificationService->createDirectionMessageNotifications($ticket, $user->id, $directionsDestinaires);
+
             DB::commit();
 
             // Charger les relations pour la réponse
