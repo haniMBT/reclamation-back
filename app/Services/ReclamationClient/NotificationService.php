@@ -20,39 +20,53 @@ class NotificationService
     public function createTicketValidationNotifications(TRecTicket $ticket): void
     {
         try {
-            // Charger la relation user si elle n'est pas déjà chargée
+            // Charger les relations nécessaires
             if (!$ticket->relationLoaded('user')) {
                 $ticket->load('user');
             }
+            if (!$ticket->relationLoaded('baseTicket')) {
+                $ticket->load('baseTicket');
+            }
 
-            // Récupérer toutes les directions associées au ticket
-            $ticketDirections = TRecTicketDirection::where('tticket_id', $ticket->id)
-                ->pluck('direction')
-                ->unique()
-                ->toArray();
+            // Récupérer toutes les directions associées au ticket avec leurs informations
+            $ticketDirections = TRecTicketDirection::where('tticket_id', $ticket->id)->get();
 
-            // Préparer les données du client
+            // Préparer les données du client (nom et prénom en majuscules)
             $clientName = $ticket->user
-                ? trim(($ticket->user->Prenom ?? '') . ' ' . ($ticket->user->Nom ?? ''))
-                : 'Client inconnu';
+                ? strtoupper(trim(($ticket->user->Prenom ?? '') . ' ' . ($ticket->user->Nom ?? '')))
+                : 'CLIENT INCONNU';
+
+            // Récupérer le libellé du ticket de base
+            $libelle = $ticket->baseTicket ? $ticket->baseTicket->libelle : $ticket->objet;
 
             // Pour chaque direction, trouver un utilisateur avec le rôle employe_Répondeur
-            foreach ($ticketDirections as $direction) {
-                $targetUser = $this->findEmployeRepondeursByDirection($direction);
+            foreach ($ticketDirections as $ticketDirection) {
+                $targetUser = $this->findEmployeRepondeursByDirection($ticketDirection->direction);
 
                 // Créer une notification seulement si un utilisateur valide est trouvé
                 if ($targetUser) {
+                    // Déterminer le message selon type_orientation et statut_direction
+                    $message = $this->generateValidationMessage(
+                        $clientName,
+                        $libelle,
+                        $ticketDirection->type_orientation,
+                        $ticketDirection->statut_direction
+                    );
+
                     $this->createNotification([
                         'tticket_id' => $ticket->id,
                         'sender_id' => $ticket->user_id,
                         'id_recepteur' => $targetUser->id,
-                        'direction' => $direction,
-                        'message' => "Le client {$clientName} a validé une réclamation.",
+                        'direction' => $ticketDirection->direction,
+                        'message' => $message,
                         'type' => 'validation_ticket',
                         'mode' => 'consultation',
                         'meta' => [
                             'ticket_title' => $ticket->objet,
-                            'created_by' => $clientName
+                            'created_by' => $clientName,
+                            'type_orientation' => $ticketDirection->type_orientation,
+                            'statut_direction' => $ticketDirection->statut_direction,
+                            'libelle' => $libelle
                         ],
                         'is_read' => 0
                     ]);
@@ -64,6 +78,32 @@ class NotificationService
         } catch (\Exception $e) {
             Log::error("Erreur lors de la création des notifications pour le ticket {$ticket->id}: " . $e->getMessage());
         }
+    }
+
+    /**
+     * Générer le message de notification selon type_orientation et statut_direction
+     *
+     * @param string $clientName
+     * @param string $libelle
+     * @param string $typeOrientation
+     * @param string $statutDirection
+     * @return string
+     */
+    private function generateValidationMessage(string $clientName, string $libelle, string $typeOrientation, string $statutDirection): string
+    {
+        if ($typeOrientation === 'ticket') {
+            return "{$clientName} a validé la réclamation « {$libelle} ». Vous êtes invité en tant que pilote à résoudre et répondre à cette réclamation.";
+        }
+
+        // Si type_orientation != "ticket"
+        if ($statutDirection === 'consultation') {
+            return "{$clientName} a validé la réclamation « {$libelle} ». Vous êtes invité à consulter le traitement et les réponses associées à cette réclamation.";
+        } elseif ($statutDirection === 'traitement') {
+            return "{$clientName} a validé la réclamation « {$libelle} ». Vous êtes invité à collaborer au traitement de cette réclamation.";
+        }
+
+        // Message par défaut si aucune condition n'est remplie
+        return "{$clientName} a validé la réclamation « {$libelle} ».";
     }
 
     /**
