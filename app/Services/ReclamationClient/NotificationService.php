@@ -324,6 +324,10 @@ class NotificationService
             if (!$ticket->relationLoaded('user')) {
                 $ticket->load('user');
             }
+            if (!$ticket->relationLoaded('baseTicket')) {
+                $ticket->load('baseTicket');
+            }
+            $libelle= $ticket->baseTicket->libelle;
 
             // Préparer les données du client
             $clientName = $ticket->user
@@ -335,14 +339,11 @@ class NotificationService
                 // Envoyer une notification à tous les employés répondeurs concernés
 
                 // Récupérer toutes les directions associées au ticket
-                $ticketDirections = TRecTicketDirection::where('tticket_id', $ticket->id)
-                    ->pluck('direction')
-                    ->unique()
-                    ->toArray();
+                $ticketDirections = TRecTicketDirection::where('tticket_id', $ticket->id)->get();
 
                 // Pour chaque direction, trouver un utilisateur avec le rôle employe_Répondeur
-                foreach ($ticketDirections as $direction) {
-                    $targetUser = $this->findEmployeRepondeursByDirection($direction);
+                foreach ($ticketDirections as $ticketDirection) {
+                    $targetUser = $this->findEmployeRepondeursByDirection($ticketDirection->direction);
 
                     // Créer une notification seulement si un utilisateur valide est trouvé
                     // et que ce n'est pas l'expéditeur (ne devrait pas arriver car client != employé)
@@ -351,10 +352,10 @@ class NotificationService
                             'tticket_id' => $ticket->id,
                             'sender_id' => $senderId,
                             'id_recepteur' => $targetUser->id,
-                            'direction' => $direction,
-                            'message' => "Le client {$clientName} a répondu à la réclamation \"{$ticket->objet}\".",
+                            'direction' => $ticketDirection->direction,
+                            'message' => "Le client {$clientName} a répondu à la réclamation \"{$ticket->objet}\" ticket \"{$libelle}\".",
                             'type' => 'reponse_client',
-                            'mode' => 'consultation',
+                            'mode' => $ticketDirection->statut_direction,
                             'meta' => [
                                 'ticket_title' => $ticket->objet,
                                 'client_name' => $clientName,
@@ -379,7 +380,7 @@ class NotificationService
                         'direction' => $ticket->user ? $ticket->user->direction : null,
                         'message' => "Vous avez reçu une réponse à votre réclamation \"{$ticket->objet}\".",
                         'type' => 'reponse_employe',
-                        'mode' => 'consultation',
+                        'mode' => null,
                         'meta' => [
                             'ticket_title' => $ticket->objet,
                             'status' => $ticket->status
