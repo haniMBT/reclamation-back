@@ -414,6 +414,10 @@ class NotificationService
             if (!$ticket->relationLoaded('user')) {
                 $ticket->load('user');
             }
+             if (!$ticket->relationLoaded('baseTicket')) {
+                $ticket->load('baseTicket');
+            }
+            $libelle= $ticket->baseTicket->libelle;
 
             // Préparer les données de l'expéditeur
             $senderUser = \App\Models\User::find($senderId);
@@ -421,11 +425,13 @@ class NotificationService
                 ? trim(($senderUser->Prenom ?? '') . ' ' . ($senderUser->Nom ?? ''))
                 : 'Utilisateur inconnu';
 
+            $ticketDirectionsDestinaires = TRecTicketDirection::where('tticket_id', $ticket->id)->whereIN('direction',$directionsDestinaires)->get();
+
 
             // Pour chaque direction destinataire
-            foreach ($directionsDestinaires as $direction) {
+            foreach ($ticketDirectionsDestinaires as $ticketDirectionsDestinaires) {
                 // Trouver les utilisateurs employés répondeurs de cette direction
-                $targetUser = $this->findEmployeRepondeursByDirection($direction);
+                $targetUser = $this->findEmployeRepondeursByDirection($ticketDirectionsDestinaires->direction);
 
                 // Créer une notification pour chaque utilisateur trouvé
                 // foreach ($targetUsers as $targetUser) {
@@ -436,10 +442,10 @@ class NotificationService
                             'tticket_id' => $ticket->id,
                             'sender_id' => $senderId,
                             'id_recepteur' => $targetUser->id,
-                            'direction' => $direction,
-                            'message' => "{$senderName} vous a envoyé un message concernant la réclamation \"{$ticket->objet}\".",
+                            'direction' => $ticketDirectionsDestinaires->direction,
+                            'message' => "{$senderName} vous a envoyé un message concernant la réclamation \"{$ticket->objet}\" ticket \"{$libelle}\".",
                             'type' => 'message_direction',
-                            'mode' => 'consultation',
+                            'mode' => $ticketDirectionsDestinaires->statut_direction,
                             'meta' => [
                                 'ticket_title' => $ticket->objet,
                                 'sender_name' => $senderName,
