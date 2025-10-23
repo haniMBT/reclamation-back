@@ -464,4 +464,135 @@ class NotificationService
             Log::error("Erreur lors de la création des notifications pour le message du ticket {$ticket->id}: " . $e->getMessage());
         }
     }
+
+    /**
+     * Créer des notifications pour l'ajout d'une direction à un ticket
+     *
+     * @param TRecTicket $ticket
+     * @param string $direction Direction ajoutée
+     * @param string $statutDirection Statut de la direction (consultation/traitement)
+     * @param int $pilotUserId ID de l'utilisateur pilot qui a ajouté la direction
+     * @return void
+     */
+    public function createDirectionAddedNotifications(TRecTicket $ticket, string $direction, string $statutDirection, int $pilotUserId): void
+    {
+        try {
+            // Charger les relations nécessaires
+            if (!$ticket->relationLoaded('user')) {
+                $ticket->load('user');
+            }
+            if (!$ticket->relationLoaded('baseTicket')) {
+                $ticket->load('baseTicket');
+            }
+
+            // Récupérer le libellé du ticket de base
+            $libelle = $ticket->baseTicket ? $ticket->baseTicket->libelle : $ticket->objet;
+
+            // Trouver les utilisateurs employés répondeurs de cette direction
+            $targetUser = $this->findEmployeRepondeursByDirection($direction);
+
+            // Créer une notification seulement si un utilisateur valide est trouvé
+            // et que ce n'est pas l'utilisateur pilot lui-même
+            if ($targetUser && $targetUser->id != $pilotUserId) {
+                // Générer le message selon le statut de la direction
+                $message = $this->generateDirectionAddedMessage($ticket->objet, $libelle, $statutDirection);
+
+                $this->createNotification([
+                    'tticket_id' => $ticket->id,
+                    'sender_id' => $pilotUserId,
+                    'id_recepteur' => $targetUser->id,
+                    'direction' => $direction,
+                    'message' => $message,
+                    'type' => 'ajout_direction',
+                    'mode' => $statutDirection,
+                    'meta' => [
+                        'ticket_title' => $ticket->objet,
+                        'libelle' => $libelle,
+                        'statut_direction' => $statutDirection,
+                        'direction_ajoutee' => $direction
+                    ],
+                    'is_read' => 0
+                ]);
+
+                Log::info("Notification d'ajout de direction créée pour le ticket {$ticket->id}, direction: {$direction}");
+            }
+
+        } catch (\Exception $e) {
+            Log::error("Erreur lors de la création des notifications d'ajout de direction pour le ticket {$ticket->id}: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Générer le message de notification pour l'ajout d'une direction
+     *
+     * @param string $objet
+     * @param string $libelle
+     * @param string $statutDirection
+     * @return string
+     */
+    private function generateDirectionAddedMessage(string $objet, string $libelle, string $statutDirection): string
+    {
+        if ($statutDirection === 'consultation') {
+            return "Vous avez été ajouté pour consulter la réclamation {$objet} ticket {$libelle}.";
+        } elseif ($statutDirection === 'traitement') {
+            return "Vous avez été ajouté pour collaborer à la réclamation {$objet} ticket {$libelle}.";
+        }
+
+        // Message par défaut
+        return "Vous avez été ajouté à la réclamation {$objet} ticket {$libelle}.";
+    }
+
+    /**
+     * Créer des notifications pour la suppression d'une direction d'un ticket
+     *
+     * @param TRecTicket $ticket
+     * @param string $direction Direction supprimée
+     * @param int $pilotUserId ID de l'utilisateur pilot qui a supprimé la direction
+     * @return void
+     */
+    public function createDirectionRemovedNotifications(TRecTicket $ticket, string $direction, int $pilotUserId): void
+    {
+        try {
+            // Charger les relations nécessaires
+            if (!$ticket->relationLoaded('user')) {
+                $ticket->load('user');
+            }
+            if (!$ticket->relationLoaded('baseTicket')) {
+                $ticket->load('baseTicket');
+            }
+
+            // Récupérer le libellé du ticket de base
+            $libelle = $ticket->baseTicket ? $ticket->baseTicket->libelle : $ticket->objet;
+
+            // Trouver les utilisateurs employés répondeurs de cette direction
+            $targetUser = $this->findEmployeRepondeursByDirection($direction);
+
+            // Créer une notification seulement si un utilisateur valide est trouvé
+            // et que ce n'est pas l'utilisateur pilot lui-même
+            if ($targetUser && $targetUser->id != $pilotUserId) {
+                $message = "Vous n'êtes plus collaborateur sur la réclamation {$ticket->objet} ticket {$libelle}.";
+
+                $this->createNotification([
+                    'tticket_id' => $ticket->id,
+                    'sender_id' => $pilotUserId,
+                    'id_recepteur' => $targetUser->id,
+                    'direction' => $direction,
+                    'message' => $message,
+                    'type' => 'suppression_direction',
+                    'mode' => null, // Pas de mode spécifique pour la suppression
+                    'meta' => [
+                        'ticket_title' => $ticket->objet,
+                        'libelle' => $libelle,
+                        'direction_supprimee' => $direction
+                    ],
+                    'is_read' => 0
+                ]);
+
+                Log::info("Notification de suppression de direction créée pour le ticket {$ticket->id}, direction: {$direction}");
+            }
+
+        } catch (\Exception $e) {
+            Log::error("Erreur lors de la création des notifications de suppression de direction pour le ticket {$ticket->id}: " . $e->getMessage());
+        }
+    }
 }

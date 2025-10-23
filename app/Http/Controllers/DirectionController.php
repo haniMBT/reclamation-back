@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Direction;
 use App\Models\ReclamationClient\TRecTicketDirection;
+use App\Models\ReclamationClient\TRecTicket;
+use App\Services\ReclamationClient\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -275,6 +277,23 @@ class DirectionController extends Controller
                 'type_orientation' => 'direction',
             ]);
 
+            // Créer les notifications d'ajout de direction
+            try {
+                $ticket = TRecTicket::find($ticketId);
+                if ($ticket) {
+                    $notificationService = new NotificationService();
+                    $notificationService->createDirectionAddedNotifications(
+                        $ticket,
+                        $validated['direction'],
+                        $validated['statut_direction'],
+                        Auth::id()
+                    );
+                }
+            } catch (\Exception $e) {
+                Log::error("Erreur lors de la création des notifications d'ajout de direction: " . $e->getMessage());
+                // Ne pas faire échouer la requête principale si les notifications échouent
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Direction ajoutée au ticket avec succès',
@@ -312,10 +331,35 @@ class DirectionController extends Controller
                 'directions.*' => 'required|string|min:2',
             ]);
 
+            // Récupérer les directions avant suppression pour les notifications
+            $directionsToDelete = TRecTicketDirection::where('tticket_id', $ticketId)
+                ->whereIn('direction', $validated['directions'])
+                ->get();
+
             // Suppression de toutes les occurrences des directions sélectionnées pour ce ticket
             $deletedCount = TRecTicketDirection::where('tticket_id', $ticketId)
                 ->whereIn('direction', $validated['directions'])
                 ->delete();
+
+            // Créer les notifications de suppression de direction
+            if ($deletedCount > 0) {
+                try {
+                    $ticket = TRecTicket::find($ticketId);
+                    if ($ticket) {
+                        $notificationService = new NotificationService();
+                        foreach ($directionsToDelete as $directionRecord) {
+                            $notificationService->createDirectionRemovedNotifications(
+                                $ticket,
+                                $directionRecord->direction,
+                                Auth::id()
+                            );
+                        }
+                    }
+                } catch (\Exception $e) {
+                    Log::error("Erreur lors de la création des notifications de suppression de direction: " . $e->getMessage());
+                    // Ne pas faire échouer la requête principale si les notifications échouent
+                }
+            }
 
             return response()->json([
                 'success' => true,
