@@ -251,21 +251,23 @@ class NotificationService
             if (!$ticket->relationLoaded('user')) {
                 $ticket->load('user');
             }
+            if (!$ticket->relationLoaded('baseTicket')) {
+                $ticket->load('baseTicket');
+            }
 
             // Récupérer toutes les directions associées au ticket
-            $ticketDirections = TRecTicketDirection::where('tticket_id', $ticket->id)
-                ->pluck('direction')
-                ->unique()
-                ->toArray();
+            $ticketDirections = TRecTicketDirection::where('tticket_id', $ticket->id)->get();
 
             // Préparer les données du client
             $clientName = $ticket->user
                 ? trim(($ticket->user->Prenom ?? '') . ' ' . ($ticket->user->Nom ?? ''))
                 : 'Client inconnu';
 
+            $libelle= $ticket->baseTicket->libelle;
+
             // Pour chaque direction, trouver un utilisateur avec le rôle employe_Répondeur
-            foreach ($ticketDirections as $direction) {
-                $targetUser = $this->findEmployeRepondeursByDirection($direction);
+            foreach ($ticketDirections as $ticketDirection) {
+                $targetUser = $this->findEmployeRepondeursByDirection($ticketDirection->direction);
 
                 // Créer une notification seulement si un utilisateur valide est trouvé
                 // et que ce n'est pas l'auteur du recours
@@ -274,10 +276,10 @@ class NotificationService
                         'tticket_id' => $ticket->id,
                         'sender_id' => $recoursAuthorId,
                         'id_recepteur' => $targetUser->id,
-                        'direction' => $direction,
-                        'message' => "Le client {$clientName} a effectué un recours sur la réclamation \"{$ticket->objet}\".",
+                        'direction' => $ticketDirection->direction,
+                        'message' => "Le client {$clientName} a effectué un recours sur la réclamation \"{$ticket->objet}\" ticket \"{$libelle}\".",
                         'type' => 'creation_recours',
-                        'mode' => 'consultation',
+                        'mode' => $ticketDirection->statut_direction,
                         'meta' => [
                             'ticket_title' => $ticket->objet,
                             'client_name' => $clientName,
