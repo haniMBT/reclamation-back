@@ -60,7 +60,7 @@ class NotificationService
                         'direction' => $ticketDirection->direction,
                         'message' => $message,
                         'type' => 'validation_ticket',
-                        'mode' => 'consultation',
+                        'mode' => $ticketDirection->statut_direction,
                         'meta' => [
                             'ticket_title' => $ticket->objet,
                             'created_by' => $clientName,
@@ -182,7 +182,7 @@ class NotificationService
                     'direction' =>$ticket->user ? $ticket->user->direction : null,
                     'message' => $messageText,
                     'type' => $notificationType,
-                    'mode' => 'consultation',
+                    'mode' => null,
                     'meta' => [
                         'ticket_title' => $ticket->objet,
                         'status' => $ticket->status,
@@ -194,14 +194,11 @@ class NotificationService
 
             // 2. Envoyer des notifications aux utilisateurs concernés (comme après validation)
             // Récupérer toutes les directions associées au ticket
-            $ticketDirections = TRecTicketDirection::where('tticket_id', $ticket->id)
-                ->pluck('direction')
-                ->unique()
-                ->toArray();
+            $ticketDirections = TRecTicketDirection::where('tticket_id', $ticket->id)->get();
 
             // Pour chaque direction, trouver un utilisateur avec le rôle employe_Répondeur
-            foreach ($ticketDirections as $direction) {
-                $targetUser = $this->findEmployeRepondeursByDirection($direction);
+            foreach ($ticketDirections as $ticketDirection) {
+                $targetUser = $this->findEmployeRepondeursByDirection($ticketDirection->direction);
 
                 // Créer une notification seulement si un utilisateur valide est trouvé
                 // et s'il n'est pas celui qui a effectué la clôture
@@ -218,10 +215,10 @@ class NotificationService
                         'tticket_id' => $ticket->id,
                         'sender_id' => $closedByUserId,
                         'id_recepteur' => $targetUser->id,
-                        'direction' => $direction,
+                        'direction' => $ticketDirection->direction,
                         'message' => $messageText,
                         'type' => $notificationType,
-                        'mode' => 'consultation',
+                        'mode' => $ticketDirection->statut_direction,
                         'meta' => [
                             'ticket_title' => $ticket->objet,
                             'created_by' => $clientName,
