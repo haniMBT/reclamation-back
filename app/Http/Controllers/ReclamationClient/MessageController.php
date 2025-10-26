@@ -26,11 +26,23 @@ class MessageController extends Controller
 
             $privilege = Auth::user()->scopePrivileges('message');
 
-            $ticket = TRecTicket::find($ticketId);
+            $ticket = TRecTicket::with('user')->find($ticketId);
             $ticket->user_crateur = $ticket->user()->first();
             $ticket->privilege_crateur =  DB::table('p_privileges')->join('p_profils', 'p_profils.code', 'p_privileges.profil_code')
             ->where('p_profils.code', $ticket->user_crateur->privilege)->where('volet','message')
             ->select('p_privileges.*')->first();
+            
+            // Logique conditionnelle pour afficher le nom/prénom du créateur
+            // Masquer pour le créateur lui-même
+            $currentUserId = Auth::id();
+            $creatorInfo = null;
+            if ($ticket->user_id !== $currentUserId && $ticket->user) {
+                $creatorInfo = [
+                    'nom' => $ticket->user->Nom ?? $ticket->nom,
+                    'prenom' => $ticket->user->Prenom ?? $ticket->prenom,
+                    'nom_complet' => trim(($ticket->user->Prenom ?? $ticket->prenom) . ' ' . ($ticket->user->Nom ?? $ticket->nom))
+                ];
+            }
             $ticket->ticket_direction_crateur = TRecTicketDirection::where('tticket_id', $ticketId)
                 ->where('direction', $ticket->user_crateur->direction)
                 ->first();
@@ -108,7 +120,8 @@ class MessageController extends Controller
                 'data' => $messages,
                 'privilege' => $privilege,
                 'ticket' => $ticket,
-                'ticket_direction' => $ticket_direction
+                'ticket_direction' => $ticket_direction,
+                'createur' => $creatorInfo // Informations du créateur (null si c'est le créateur lui-même)
             ]);
         } catch (\Exception $e) {
             return response()->json([

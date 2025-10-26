@@ -100,7 +100,8 @@ class TicketController extends Controller
             $query = TRecTicket::with([
                 'baseTicket.infosGenerales',
                 'types.bRecType',
-                'types.details.bRecDetail'
+                'types.details.bRecDetail',
+                'user' // Ajouter la relation avec l'utilisateur créateur
             ]);
 
             // Privilege
@@ -166,6 +167,18 @@ class TicketController extends Controller
             // Formater les données
             $formattedTickets = $tickets->getCollection()->map(function ($ticket) {
                 $baseTicket = $ticket->baseTicket;
+                $currentUserId = Auth::id();
+                
+                // Logique conditionnelle pour afficher le nom/prénom du créateur
+                // Masquer pour le créateur lui-même
+                $creatorInfo = null;
+                if ($ticket->user_id !== $currentUserId && $ticket->user) {
+                    $creatorInfo = [
+                        'nom' => $ticket->user->Nom ?? $ticket->nom,
+                        'prenom' => $ticket->user->Prenom ?? $ticket->prenom,
+                        'nom_complet' => trim(($ticket->user->Prenom ?? $ticket->prenom) . ' ' . ($ticket->user->Nom ?? $ticket->nom))
+                    ];
+                }
 
                 return [
                     'id' => $ticket->id,
@@ -186,6 +199,7 @@ class TicketController extends Controller
                     'libelle' => $baseTicket ? $baseTicket->libelle : null,
                     'definition' => $baseTicket ? $baseTicket->definition : null,
                     'documentAfornir' => $baseTicket ? $baseTicket->documentAfornir : null,
+                    'createur' => $creatorInfo, // Informations du créateur (null si c'est le créateur lui-même)
                     'infos_generales' => $baseTicket && $baseTicket->infosGenerales ? $baseTicket->infosGenerales->map(function ($info) {
                         return [
                             'id' => $info->id,
