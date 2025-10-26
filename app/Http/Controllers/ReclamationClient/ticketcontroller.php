@@ -362,6 +362,8 @@ class TicketController extends Controller
                 'direction' => $direction,
                 'status' => $status,
                 'objet' => $objet,
+                'nom' => auth::user()->Nom,
+                'prenom' => auth::user()->Prenom,
                 'created_at' => now(),
                 'updated_at' => now(),
                 'reply_permission' => 'employe_Répondeur',
