@@ -387,6 +387,14 @@ class ParametrageController extends Controller
                 ], 404);
             }
 
+            // Vérification d'usage: empêcher la suppression si le ticket est déjà utilisé
+            if (TRecTicket::where('bticket_id', $ticket->id)->exists()) {
+                return response()->json([
+                    'error' => 'Suppression impossible',
+                    'message' => 'Ce ticket est déjà utilisé dans des réclamations et ne peut pas être supprimé.'
+                ], 409);
+            }
+
             DB::beginTransaction();
 
             // Supprimer les détails des types associés
