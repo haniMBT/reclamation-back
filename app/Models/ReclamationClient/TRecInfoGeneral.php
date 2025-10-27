@@ -28,6 +28,7 @@ class TRecInfoGeneral extends Model
         'libelle',
         'key_attribut',
         'value',
+        'type',
     ];
 
     /**

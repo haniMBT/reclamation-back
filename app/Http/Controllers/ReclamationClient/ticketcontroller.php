@@ -55,7 +55,8 @@ class TicketController extends Controller
                             'id' => $info->id,
                             'libelle' => $info->libelle,
                             'key_attirubut' => $info->key_attirubut,
-                            'type' => $info->type,
+                            'bticket_id' => $info->bticket_id,
+                            'type' => $info->type ?? null
                         ];
                     })
                 ];
@@ -205,8 +206,9 @@ class TicketController extends Controller
                         return [
                             'id' => $info->id,
                             'libelle' => $info->libelle,
-                            'key_attirubut' => $info->key_attirubut,
-                            'bticket_id' => $info->bticket_id
+                            'key_attribut' => $info->key_attribut,
+                            'type' => $info->type ?? null,
+                              'bticket_id' => $info->bticket_id
                         ];
                     }) : [],
                     'types' => $ticket->types->map(function ($type) {
@@ -279,7 +281,8 @@ class TicketController extends Controller
                 'info_general_data' => 'required|array|min:1',
                 'info_general_data.*.info_general_id' => 'required|integer|min:1',
                 'info_general_data.*.value' => 'required|string|min:1|max:255',
-                'info_general_data.*.key_attribut' => 'required|boolean'
+                'info_general_data.*.key_attribut' => 'required|boolean',
+                'info_general_data.*.type' => 'nullable|string|in:date,texte,montant,numéro'
             ], [
                 'bticket_id.required' => 'L\'identifiant du ticket est requis.',
                 'bticket_id.exists' => 'Le ticket sélectionné n\'existe pas.',
@@ -289,7 +292,8 @@ class TicketController extends Controller
                 'info_general_data.min' => 'Au moins une information générale est requise.',
                 'info_general_data.*.value.required' => 'La valeur du champ est requise.',
                 'info_general_data.*.value.min' => 'La valeur du champ ne peut pas être vide.',
-                'info_general_data.*.value.max' => 'La valeur du champ ne peut pas dépasser 255 caractères.'
+                'info_general_data.*.value.max' => 'La valeur du champ ne peut pas dépasser 255 caractères.',
+                'info_general_data.*.type.in' => 'Le type de champ doit être parmi: date, texte, montant, numéro'
             ]);
 
             $bticketId = $request->input('bticket_id');
@@ -393,6 +397,7 @@ class TicketController extends Controller
                     'libelle' => $infoData['libelle'],
                     'value' => $infoData['value'],
                     'key_attribut' => $infoData['key_attribut'],
+                    'type' => $infoData['type'] ?? null,
                     'created_at' => now(),
                     'updated_at' => now()
                 ]);
@@ -905,6 +910,7 @@ class TicketController extends Controller
                         'libelle' => $info->baseInfoGeneral ? $info->baseInfoGeneral->libelle : $info->libelle,
                         'key_attribut' => $info->key_attribut,
                         'value' => $info->value,
+                        'type' => $info->baseInfoGeneral ? $info->baseInfoGeneral->type : ($info->type ?? null),
                     ];
                 })
             ];
@@ -1052,6 +1058,7 @@ class TicketController extends Controller
                             'libelle' => isset($infoData['libelle']) ? trim($infoData['libelle']) : '',
                             'value' => trim($infoData['valeur']),
                             'key_attribut' => true,
+                            'type' => isset($infoData['type']) ? trim($infoData['type']) : null,
                         ]);
                     }
                 }
@@ -1108,7 +1115,7 @@ class TicketController extends Controller
     }
 
     /**
-     * Télécharger un fichier joint à un ticket.
+     * Télécharge un fichier joint à un ticket.
      *
      * @param int $fileId
      * @return \Symfony\Component\HttpFoundation\StreamedResponse
