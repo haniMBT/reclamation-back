@@ -48,10 +48,11 @@ class ParametrageController extends Controller
 
             $directions_visibilite = Direction::groupBy('DIRECTION')
                 ->select('DIRECTION')
-                ->whereNotIn('DIRECTION', function ($query) {
-                    $query->select('direction')
-                        ->from('b_rec_tickets');
-                });
+                    // ->whereNotIn('DIRECTION', function ($query) {
+                    //     $query->select('direction')
+                    //         ->from('b_rec_tickets');
+                    // })
+                ;
                 if ($privilege->visibilite == 'P'|| $privilege->visibilite == 'L') {
                 $directions_visibilite= $directions_visibilite->where('direction', Auth::user()->direction);
                 }
