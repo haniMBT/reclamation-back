@@ -40,11 +40,10 @@ class PayementController extends Controller
     public function payerFacture(Request $request, $id)
     {
         $facture = Facture::find($id);
-        //dd($facture);
         return view('payement.payer', compact('facture'));
     }
 
-    //Premier Processus de Paiement
+    // Premier Processus de Paiement
     public function processPayment(Request $request, $id, $email)
     {
         $request->validate([
@@ -52,7 +51,6 @@ class PayementController extends Controller
             'terms' => 'accepted'
         ]);
         $facture = Facture::where('id', $id)->first();
-        //dd($facture);
         if (!$facture) {
             return redirect()->back()->with('error', 'Facture introuvable.');
         }
@@ -69,64 +67,79 @@ class PayementController extends Controller
         $order->payment_token_expires_at = Carbon::now()->addMinutes(30);
         $order->save();
 
-        //dd($order);
         // Appeler le PaymentService pour enregistrer le paiement
         $response = $this->paymentService->registerPayment($order, $facture, $user);
 
-        if ($response && $response->errorCode == 0) {
+        // Gestion robuste du résultat pour éviter l'accès à une propriété sur null
+        if (is_object($response) && isset($response->errorCode) && $response->errorCode == 0 && !empty($response->formUrl)) {
             // Redirection vers l'URL de paiement en cas de succès
-            $orderID = $order->id;
             return redirect()->away($response->formUrl);
-        } else {
-            return redirect()->route('payment.failure', $facture->id)->with('error', 'Erreur de paiement : ' . $response->errorMessage);
         }
+
+        // En cas d'échec ou réponse nulle, journaliser et rediriger vers l'échec
+        Log::error('Erreur lors de registerPayment', [
+            'facture_id' => $facture->id,
+            'order_id' => $order->id,
+            'response' => $response,
+        ]);
+
+        $message = is_object($response)
+            ? ($response->errorMessage ?? 'Erreur de paiement inconnue.')
+            : "Erreur lors de l'initialisation du paiement.";
+
+        return redirect()->route('payment.failure', $facture->id)->with('error', 'Erreur de paiement : ' . $message);
     }
 
-    //Succès de paiement
+    // Succès de paiement (indépendant du paramètre token)
     public function success(Request $request, $id)
     {
+        Log::info('Request data:', $request->all());
+
+        // Charger la facture dès le début pour accès à facnum
+        $facture = Facture::findOrFail($id);
+
+        // Rendre le token optionnel et utiliser des mécanismes de repli pour déterminer l'utilisateur
         $token = $request->query('token');
-        if (!$token) {
-            return redirect()->route('payment.error')->with('error', 'Token de paiement manquant.');
+        $order = null;
+        $user = null;
+
+        if ($token) {
+            $order = EOrder::where('payment_token', $token)->first();
+            if ($order) {
+                // Vérification de l'expiration
+                if ($order->payment_token_expires_at && Carbon::now()->greaterThan($order->payment_token_expires_at)) {
+                    abort(403, 'Le token de paiement a expiré.');
+                }
+                // Déterminer l'utilisateur via l'ordre
+                $user = User::find($order->user_id);
+            }
         }
 
-        $order = EOrder::where('payment_token', $token)->first();
-        if (!$order) {
-            abort(403, 'Commande inconnue ou token invalide.');
-        }
-
-        // Vérification de l'expiration
-        if ($order->payment_token_expires_at && Carbon::now()->greaterThan($order->payment_token_expires_at)) {
-            abort(403, 'Le token de paiement a expiré.');
-        }
-
-        $user = User::find($order->user_id);
-
+        // Repli 1: via paramètre user_id si présent dans l'URL de retour
         if (!$user) {
-            abort(403, 'Utilisateur associé à la commande introuvable.');
+            $userId = $request->input('user_id') ?? $request->query('user_id');
+            if ($userId) {
+                $user = User::find($userId);
+            }
         }
 
-        // Authentifier l'utilisateur
-        Auth::login($user);
+        // Repli 2: dernier EOrder pour la facture en question
+        if (!$user) {
+            $lastEorder = EOrder::where('facnum', $facture->facnum)->orderBy('created_at', 'desc')->first();
+            if ($lastEorder) {
+                $user = User::find($lastEorder->user_id);
+            }
+        }
 
-        // (Optionnel) Supprimer le token pour éviter réutilisation
-        /*$order->payment_token = null;
-        $order->payment_token_expires_at = null;
-        $order->save();*/
+        // Authentifier si utilisateur déterminé, sinon continuer en invité
+        if ($user) {
+            Auth::login($user);
+        }
 
         // Vérification de la présence de orderId
         $orderId = $request->input('orderId') ?? $request->query('orderId') ?? $request->input('order_id');
-        // Récupération de la facture
-        //dd($orderId);
-        //verifier si le paiement a été effectué
-
-
         Log::info('Requête reçue pour success : ', $request->all());
-
-        // Vérification de la méthode HTTP
         Log::info('Méthode HTTP : ' . $request->method());
-
-        $facture = Facture::findOrFail($id);
         if (!$orderId) {
             return view('payement.error', [
                 'facture' => $facture,
@@ -134,36 +147,20 @@ class PayementController extends Controller
             ]);
         }
 
-        $facture = Facture::findOrFail($id);
-
-        // 🛡️ Vérification si déjà payé
-        /*if ($facture->status == 1) {
-            $dateValable = Carbon::parse($facture->created_at)->addHour()->format('d-m-Y H:i:s');
-        
-            // Génère le PDF si besoin
-            $pdf = $this->generatePDF($facture, null, $dateValable);
-        
-            return view('payement.success', compact('facture', 'dateValable','orderId','order'))
-                    ->with('info', 'Votre facture a déjà été payée. Le reçu de paiement est disponible.');
-        }*/
-
+        // Vérifier si déjà confirmé
         $verif_confirm = ConfirmOrder::where('orderid', $orderId)
             ->where('facnum', $facture->facnum)
             ->first();
 
         if ($verif_confirm) {
             $dateValable = Carbon::parse($verif_confirm->created_at)->addHour()->format('d-m-Y H:i:s');
-            $filename = $facture->domcod . '_' . $facture->facnum . '.pdf';
-            $filePath = 'download/' . $filename;
             $this->generatePDF($facture, null, $dateValable);
-            /*if (!Storage::exists($filePath)) {
-                
-            }*/
             $obj = $verif_confirm;
             $order = $verif_confirm;
             return view('payement.success', compact('facture', 'dateValable', 'obj', 'orderId', 'order'))
                 ->with('info', 'Votre paiement a déjà été validé. Voici votre reçu.');
         }
+
         // Récupération des credentials API
         $username = config('payment.username');
         $password = config('payment.password');
@@ -175,16 +172,10 @@ class PayementController extends Controller
             ]);
         }
 
-        // Requête à l’API
+        // Requête à l’API (production)
         $language = 'fr';
-        //TEST
-        //$url = "https://test.satim.dz/payment/rest/confirmOrder.do?language=$language&orderId=$orderId&password=$password&userName=$username";
-
-        //PRODUCTION
         $url = "https://cib.satim.dz/payment/rest/confirmOrder.do?language=$language&orderId=$orderId&password=$password&userName=$username";
 
-        // try {
-        // Utilisation de cURL au lieu de file_get_contents
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
@@ -199,123 +190,33 @@ class PayementController extends Controller
                 'message' => 'Réponse invalide de l’API de paiement.'
             ]);
         }
-        if ($obj->params->respCode == "00" and $obj->OrderStatus == "2") {
+
+        if (($obj->params->respCode ?? null) == "00" && ($obj->OrderStatus ?? null) == "2") {
             // Vérification du paiement
             if (isset($obj->ErrorCode) && $obj->ErrorCode == 0) {
-                //dd('test');
                 $this->createConfirmOrder($obj, $facture, $orderId);
-                //$this->createRecuPaiement($facture->facnum, $orderId);
-                //dd($facture);
                 $facture->status = 1;
                 $facture->save();
             }
-            $order = ConfirmOrder::where('facnum', $facture->facnum)
-                ->first();
+            $order = ConfirmOrder::where('facnum', $facture->facnum)->first();
             $dateValable = Carbon::parse($order?->created_at)->addHour()?->format('d-m-Y H:i:s');
-            $pdf = $this->generatePDF($facture, $obj, $dateValable);
-            $this->sendusermail($order->id);
+            $this->generatePDF($facture, $obj, $dateValable);
+            if ($order) {
+                $this->sendusermail($order->id);
+            }
 
             return view('payement.success', compact('facture', 'obj', 'orderId', 'dateValable', 'order'))
                 ->with('info', 'Le reçu de paiement vous a été envoyé par mail !');
         } else {
             return view('payement.failure', compact('facture', 'obj'))->with('error', 'Échec du paiement.');
         }
-
-        // } catch (\Exception $e) {
-        //     Log::error("Erreur de paiement : " . $e->getMessage());
-        //     return view('payement.error', [
-        //         'facture' => $facture,
-        //         'message' => 'Une erreur est survenue lors du traitement du paiement.'
-        //     ]);
-        // }
-    }
-    //création du confirm order
-    private function createConfirmOrder($obj, $facture, $orderId)
-    {
-        // try {
-        Log::info('abdouuuuuuuuu ch: ' . json_encode($obj));
-
-        ConfirmOrder::create([
-            'facnum' => $facture->facnum,
-            'facrfe' => $facture->facrfe ?? null,
-            'trscod' => $facture->trscod ?? null,
-            'domcod' => $facture->domcod ?? null,
-            'orderid' => $orderId,
-            'user_id' => Auth::user()->id ?? null,
-            'expiration' => $obj->expiration ?? null,
-            'cardholderName' => $obj->cardholderName ?? null,
-            'depositAmount' => $obj->depositAmount ?? null,
-            'currency' => $obj->currency ?? null,
-            'approvalCode' => $obj->approvalCode ?? null,
-            'authCode' => $obj->authCode ?? null,
-            'actionCode' => $obj->actionCode ?? null,
-            'actionCodeDescription' => $obj->actionCodeDescription ?? null,
-            'ErrorCode' => $obj->ErrorCode ?? null,
-            'ErrorMessage' => $obj->ErrorMessage ?? null,
-            'OrderStatus' => $obj->OrderStatus ?? null,
-            'OrderNumber' => $obj->OrderNumber ?? null,
-            'Pan' => $obj->Pan ?? null,
-            'Ip' => $obj->Ip ?? request()->ip(),
-            'SvfeResponse' => $obj->SvfeResponse ?? null,
-            'Amount' => $obj->Amount ?? null,
-        ]);
-        // } catch (\Exception $e) {
-        //     // Affiche l'erreur à l'écran (utile en dev, pas en prod)
-        //     //dd("Erreur lors de l'enregistrement de la commande confirmée : " . $e->getMessage());
-
-        //     // OU en production, logguer l'erreur sans l'afficher
-        //     Log::error("Erreur lors de l'enregistrement ConfirmOrder: " . $e->getMessage());
-
-        //     // Et rediriger avec un message d'erreur
-        //     // return redirect()->back()->with('error', 'Une erreur est survenue lors de l\'enregistrement du paiement.');
-        // }
-
     }
 
-    private function generatePDF($facture, $obj, $dateValable)
-    {
-        $order = ConfirmOrder::where('facnum', $facture->facnum)->first();
-
-        // try {
-        // Génère le PDF depuis la vue Blade
-        $pdf = PDF::loadView('payement.recu', compact('facture', 'order', 'dateValable'));
-
-        // Nom de fichier
-        $fileName = $facture->domcod . '_' . $facture->facnum . '.pdf';
-        $storagePath = 'download/' . $fileName;
-
-        // Crée le dossier s'il n'existe pas
-        Storage::makeDirectory('download');
-
-        // Sauvegarde le fichier dans storage/app/download/
-        Storage::put($storagePath, $pdf->output());
-
-        // Log de succès
-        if (Storage::exists($storagePath)) {
-            Log::info("✅ PDF généré avec succès : $storagePath");
-        } else {
-            Log::error("❌ Échec de création du PDF : $storagePath");
-        }
-
-        // Retourne le PDF dans le navigateur
-        return $pdf->stream('download.pdf');
-
-        // } catch (\Exception $e) {
-        //     // Log de l'erreur, probablement liée à GD
-        //     Log::error("Erreur lors de la génération du PDF : " . $e->getMessage());
-        //     return response()->json(['error' => 'Erreur lors de la génération du PDF'], 500);
-        // }
-    }
-
-
-    //erreur de paiement
+    // Erreur de paiement (générique)
     public function errorPayment(Request $request)
     {
-        //dd($id);
-        // Gérer les erreurs génériques
         return view('payement.error');
     }
-
 
     /*private function isPaymentSuccessful($obj)
     {
@@ -325,53 +226,50 @@ class PayementController extends Controller
             && $obj->OrderStatus == "2";
     }*/
 
-    // Echec de paiement
+    // Échec de paiement (indépendant du paramètre token)
     public function failure(Request $request, $id)
     {
+        Log::info('Request data:', $request->all());
+
+        // Token optionnel, utilisation de mécanismes de repli pour déterminer l'utilisateur
         $token = $request->query('token');
-        if (!$token) {
-            return redirect()->route('payment.error')->with('error', 'Token de paiement manquant.');
+        $order = null;
+        $user = null;
+
+        if ($token) {
+            $order = EOrder::where('payment_token', $token)->first();
+            if ($order) {
+                if ($order->payment_token_expires_at && Carbon::now()->greaterThan($order->payment_token_expires_at)) {
+                    abort(403, 'Le token de paiement a expiré.');
+                }
+                $user = User::find($order->user_id);
+            }
         }
-
-        $order = EOrder::where('payment_token', $token)->first();
-
-        if (!$order) {
-            abort(403, 'Commande inconnue ou token invalide.');
-        }
-
-        // Vérification de l'expiration
-        if ($order->payment_token_expires_at && Carbon::now()->greaterThan($order->payment_token_expires_at)) {
-            abort(403, 'Le token de paiement a expiré.');
-        }
-
-        $user = User::find($order->user_id);
 
         if (!$user) {
-            abort(403, 'Utilisateur associé à la commande introuvable.');
+            $userId = $request->input('user_id') ?? $request->query('user_id');
+            if ($userId) {
+                $user = User::find($userId);
+            }
         }
 
-        // Authentifier l'utilisateur
-        Auth::login($user);
+        if ($user) {
+            Auth::login($user);
+        }
 
-        // (Optionnel) Supprimer le token pour éviter réutilisation
-        /*$order->payment_token = null;
-        $order->payment_token_expires_at = null;
-        $order->save();*/
-        // Vérification des données reçues
-
-        Log::info("Données reçues pour échec de paiement :", $request->all());
         // Recherche de la facture
         try {
             $facture = Facture::findOrFail($id);
         } catch (\Exception $e) {
             Log::error("Facture introuvable pour l'ID : $id");
             return view('payement.error', [
-                'facture' => $facture,
+                'facture' => isset($facture) ? $facture : null,
                 'message' => "Facture introuvable pour l'ID : $id"
             ]);
         }
-        $orderId = $request->input('orderId');
 
+        // Récupérer orderId
+        $orderId = $request->input('orderId') ?? $request->query('orderId') ?? $request->input('order_id');
         if (!$orderId) {
             Log::error("orderId est null ou absent dans la requête.");
             return view('payement.error', [
@@ -383,13 +281,9 @@ class PayementController extends Controller
         // Récupération des identifiants de paiement
         $username = config('payment.username');
         $password = config('payment.password');
-        $currency = '012';
         $language = 'fr';
 
-        // Construction de l'URL
-        //TEST
-        //$url = "https://test.satim.dz/payment/rest/confirmOrder.do?language=$language&orderId=$orderId&password=$password&userName=$username";
-        //PRODUCTION
+        // Construction de l'URL (production)
         $url = "https://cib.satim.dz/payment/rest/confirmOrder.do?language=$language&orderId=$orderId&password=$password&userName=$username";
 
         // Initialisation de cURL
@@ -419,7 +313,6 @@ class PayementController extends Controller
 
         // Décodage de la réponse JSON
         $obj = json_decode($result);
-        //dd($obj);
         if (!is_object($obj)) {
             Log::error("Réponse JSON invalide : $result");
             return view('payement.error', ['message' => "Réponse invalide du serveur de paiement."]);
@@ -427,10 +320,8 @@ class PayementController extends Controller
 
         $message = 'Une erreur inconnue est survenue.';
         $orderstatus = '';
-        $respCode_desc = '';
-        $SvfeResponse = '';
 
-        if ($obj->ErrorCode != 0 && $obj->ErrorCode != 3) {
+        if (($obj->ErrorCode ?? null) != 0 && ($obj->ErrorCode ?? null) != 3) {
             switch ($obj->ErrorCode) {
                 case 7:
                     $message = "ERREUR SYSTEM, Veuillez contacter l'administrateur du site";
@@ -454,16 +345,11 @@ class PayementController extends Controller
             }
         } else {
             $orderstatus = $obj->OrderStatus ?? '';
-
             if (isset($obj->params->respCode_desc)) {
-                $respCode_desc = $obj->params->respCode_desc;
-                $message = $respCode_desc;
+                $message = $obj->params->respCode_desc;
             } elseif (isset($obj->actionCodeDescription)) {
                 $message = $obj->actionCodeDescription;
             }
-
-
-            $SvfeResponse = $obj->SvfeResponse ?? '';
         }
 
         // Enregistrement de l'échec du paiement
@@ -472,9 +358,15 @@ class PayementController extends Controller
         return view('payement.echec1', compact('facture', 'orderstatus', 'message'));
     }
 
+    // Création d'un enregistrement d'échec
     private function createFailedOrderRecord($obj, $facnum, $orderId)
     {
         try {
+            // Trouver l'EOrder local le plus récent pour cette facture
+            $eorder = EOrder::where('facnum', $facnum)
+                ->orderBy('created_at', 'desc')
+                ->first();
+
             FailedOrder::create([
                 'facnum' => $facnum,
                 'orderid' => $orderId,
@@ -489,30 +381,87 @@ class PayementController extends Controller
                 'ErrorCode' => $obj->ErrorCode ?? null,
                 'ErrorMessage' => $obj->ErrorMessage ?? null,
                 'OrderStatus' => $obj->OrderStatus ?? null,
-                'OrderNumber' => $obj->OrderNumber ?? null,
+                // Utiliser l'id local de EOrder pour éviter le dépassement numérique
+                'OrderNumber' => $eorder?->id,
                 'Pan' => $obj->Pan ?? null,
                 'Ip' => $obj->Ip ?? request()->ip(),
                 'SvfeResponse' => $obj->SvfeResponse ?? null,
                 'Amount' => $obj->Amount ?? null,
             ]);
         } catch (\Exception $e) {
-            // Affiche l'erreur à l'écran (utile en dev, pas en prod)
-            //dd("Erreur lors de l'enregistrement de la commande confirmée : " . $e->getMessage());
-
-            // OU en production, logguer l'erreur sans l'afficher
             Log::error("Erreur lors de l'enregistrement FailedOrder: " . $e->getMessage());
-
-            // Et rediriger avec un message d'erreur
-            //return redirect()->back()->with('error', 'Une erreur est survenue lors de l\'enregistrement du paiement.');
         }
+    }
+
+    private function createConfirmOrder($obj, $facture, $orderId)
+    {
+        Log::info('SATIM confirm response: ' . json_encode($obj));
+
+        // Trouver l'EOrder local le plus récent pour cette facture (et domaine)
+        $eorder = EOrder::where('facnum', $facture->facnum)
+            ->where('domcod', $facture->domcod)
+            ->orderBy('created_at', 'desc')
+            ->first();
+
+        ConfirmOrder::create([
+            'facnum' => $facture->facnum,
+            'facrfe' => $facture->facrfe ?? null,
+            'trscod' => $facture->trscod ?? null,
+            'domcod' => $facture->domcod ?? null,
+            'orderid' => $orderId,
+            'user_id' => Auth::user()->id ?? null,
+            'expiration' => $obj->expiration ?? null,
+            'cardholderName' => $obj->cardholderName ?? null,
+            'depositAmount' => $obj->depositAmount ?? null,
+            'currency' => $obj->currency ?? null,
+            'approvalCode' => $obj->approvalCode ?? null,
+            'authCode' => $obj->authCode ?? null,
+            'actionCode' => $obj->actionCode ?? null,
+            'actionCodeDescription' => $obj->actionCodeDescription ?? null,
+            'ErrorCode' => $obj->ErrorCode ?? null,
+            'ErrorMessage' => $obj->ErrorMessage ?? null,
+            'OrderStatus' => $obj->OrderStatus ?? null,
+            // Utiliser l'id local de EOrder pour éviter le dépassement numérique et garder la relation locale
+            'OrderNumber' => $eorder?->id,
+            'Pan' => $obj->Pan ?? null,
+            'Ip' => $obj->Ip ?? request()->ip(),
+            'SvfeResponse' => $obj->SvfeResponse ?? null,
+            'Amount' => $obj->Amount ?? null,
+        ]);
+    }
+
+    private function generatePDF($facture, $obj, $dateValable)
+    {
+        $order = ConfirmOrder::where('facnum', $facture->facnum)->first();
+
+        // Génère le PDF depuis la vue Blade
+        $pdf = PDF::loadView('payement.recu', compact('facture', 'order', 'dateValable'));
+
+        // Nom de fichier
+        $fileName = $facture->domcod . '_' . $facture->facnum . '.pdf';
+        $storagePath = 'download/' . $fileName;
+
+        // Crée le dossier s'il n'existe pas
+        Storage::makeDirectory('download');
+
+        // Sauvegarde le fichier dans storage/app/download/
+        Storage::put($storagePath, $pdf->output());
+
+        // Log de succès
+        if (Storage::exists($storagePath)) {
+            Log::info("✅ PDF généré avec succès : $storagePath");
+        } else {
+            Log::error("❌ Échec de création du PDF : $storagePath");
+        }
+
+        // Retourne le PDF dans le navigateur
+        return $pdf->stream('download.pdf');
     }
 
     public function printRecu(Request $request, $id)
     {
-        $order = ConfirmOrder::where('id', $id)
-            ->first();
-        $eorder = EOrder::where('id', $order->OrderNumber)
-            ->first();
+        $order = ConfirmOrder::where('id', $id)->first();
+        $eorder = EOrder::where('id', $order->OrderNumber)->first();
 
         // Idem pour la facture
         $facture = $eorder ? Facture::where('facnum', $eorder->facnum)
@@ -522,19 +471,14 @@ class PayementController extends Controller
 
         $date = date('Y-m-d H:i:s', strtotime('+1 hour', strtotime($order->created_at)));
         $dateValable = date_format(date_create($date), 'd-m-Y H:i:s');
-        //$pdf = PDF::loadView('payement.recu',compact('facture','order','recu','dateValable'));
         $pdf = PDF::loadView('payement.recu', compact('facture', 'order', 'dateValable'));
-        //$pdf->save('/my_stored_file.pdf');
         return $pdf->stream();
     }
 
     public function downloadrecu(Request $request, $id)
-
     {
-        $order = ConfirmOrder::where('id', $id)
-            ->first();
-        $eorder = EOrder::where('id', $order->OrderNumber)
-            ->first();
+        $order = ConfirmOrder::where('id', $id)->first();
+        $eorder = EOrder::where('id', $order->OrderNumber)->first();
 
         // Idem pour la facture
         $facture = $eorder ? Facture::where('facnum', $eorder->facnum)
@@ -544,22 +488,18 @@ class PayementController extends Controller
 
         $date = date('Y-m-d H:i:s', strtotime('+1 hour', strtotime($order->created_at)));
         $dateValable = date_format(date_create($date), 'd-m-Y H:i:s');
-        //$pdf = PDF::loadView('payement.recu',compact('facture','order','recu','dateValable'));
         $pdf = PDF::loadView('payement.recu', compact('facture', 'order', 'dateValable'));
         $pdf_name = "epal_recu_paiement_n_" . $order->id . '-' . $order->facnum . ".pdf";
-        //On le télécharge
         return $pdf->download($pdf_name);
     }
 
     public function downloadrecuByFacture(Request $request, $id)
-
     {
         $facture = Facture::find($id);
         $order = ConfirmOrder::where('facnum', $facture->facnum)
             ->orderBy('created_at', 'desc')
             ->first();
-        $eorder = EOrder::where('id', $order->OrderNumber)
-            ->first();
+        $eorder = EOrder::where('id', $order->OrderNumber)->first();
 
         // Idem pour la facture
         $facture = $eorder ? Facture::where('facnum', $eorder->facnum)
@@ -569,38 +509,37 @@ class PayementController extends Controller
 
         $date = date('Y-m-d H:i:s', strtotime('+1 hour', strtotime($order->created_at)));
         $dateValable = date_format(date_create($date), 'd-m-Y H:i:s');
-        //$pdf = PDF::loadView('payement.recu',compact('facture','order','recu','dateValable'));
         $pdf = PDF::loadView('payement.recu', compact('facture', 'order', 'dateValable'));
         $pdf_name = "epal_recu_paiement_n_" . $order->id . '-' . $order->facnum . ".pdf";
-        //On le télécharge
         return $pdf->download($pdf_name);
     }
 
-
     public function sendusermail($id)
     {
-        Mail::to(Auth::user()->Email)->send(new MailOrder(Auth::user(), $id));
+        if (Auth::user()) {
+            Mail::to(Auth::user()->Email)->send(new MailOrder(Auth::user(), $id));
+        }
         Mail::to("caissier@portalger.com.dz")->send(new MailOrder(Auth::user(), $id));
     }
 
     public function sendmail(Request $request, $id)
     {
-
-
         if ($request->email) {
-            $user = User::where('id', EOrder::where('id', $id)->first()->user_id)->first();
-            Mail::to($request->email)->send(new MailOrder($user, $id));
-            return Redirect::back()->with('success', 'Email Envoyé');
+            $order = EOrder::where('id', $id)->first();
+            $user = $order ? User::where('id', $order->user_id)->first() : null;
+            if ($user) {
+                Mail::to($request->email)->send(new MailOrder($user, $id));
+                return Redirect::back()->with('success', 'Email Envoyé');
+            }
         }
+        return Redirect::back()->with('error', 'Email invalide ou utilisateur introuvable');
     }
 
     public function consult(Request $request, $id)
     {
-        $obj = ConfirmOrder::where('id', $id)
-            ->first();
+        $obj = ConfirmOrder::where('id', $id)->first();
         $order = $obj;
-        $eorder = EOrder::where('id', $obj->OrderNumber)
-            ->first();
+        $eorder = EOrder::where('id', $obj->OrderNumber)->first();
         $orderId = $eorder->id;
         // Idem pour la facture
         $facture = $eorder ? Facture::where('facnum', $eorder->facnum)
