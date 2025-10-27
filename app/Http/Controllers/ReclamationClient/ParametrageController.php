@@ -73,6 +73,7 @@ class ParametrageController extends Controller
                             'id' => $info->id,
                             'libelle' => $info->libelle,
                             'key_attribut' => $info->key_attirubut, // Note: utilise le nom du champ avec la faute de frappe
+                            'type' => $info->type,
                         ];
                     }),
                     'types' => $ticket->types->map(function ($type) {
@@ -132,6 +133,7 @@ class ParametrageController extends Controller
                 'infos_generales' => 'nullable|array',
                 'infos_generales.*.libelle' => 'required|string',
                 'infos_generales.*.key_attribut' => 'required|boolean',
+                'infos_generales.*.type' => 'nullable|string|in:date,texte,montant,numéro',
             ], [
                 'libelle.required' => 'Le libellé est obligatoire',
                 'libelle.string' => 'Le libellé doit être une chaîne de caractères',
@@ -145,6 +147,7 @@ class ParametrageController extends Controller
                 'infos_generales.*.libelle.string' => 'Le libellé de l\'information générale doit être une chaîne de caractères',
                 'infos_generales.*.key_attribut.required' => 'L\'attribut clé est obligatoire',
                 'infos_generales.*.key_attribut.boolean' => 'L\'attribut clé doit être un booléen',
+                'infos_generales.*.type.in' => 'Le type de champ doit être parmi: date, texte, montant, numéro',
             ]);
 
             if ($validator->fails()) {
@@ -171,7 +174,8 @@ class ParametrageController extends Controller
                         BRecInfoGeneral::create([
                             'bticket_id' => $ticket->id,
                             'libelle' => $info['libelle'],
-                            'key_attirubut' => $info['key_attribut']
+                            'key_attirubut' => $info['key_attribut'],
+                            'type' => $info['type'] ?? null,
                         ]);
                     }
                 }
@@ -222,6 +226,7 @@ class ParametrageController extends Controller
                 'infos_generales' => 'nullable|array',
                 'infos_generales.*.libelle' => 'required|string',
                 'infos_generales.*.key_attribut' => 'required|boolean',
+                'infos_generales.*.type' => 'nullable|string|in:date,texte,montant,numéro',
             ], [
                 'libelle.required' => 'Le libellé est obligatoire',
                 'libelle.string' => 'Le libellé doit être une chaîne de caractères',
@@ -235,6 +240,7 @@ class ParametrageController extends Controller
                 'infos_generales.*.libelle.string' => 'Le libellé de l\'information générale doit être une chaîne de caractères',
                 'infos_generales.*.key_attribut.required' => 'L\'attribut clé est obligatoire',
                 'infos_generales.*.key_attribut.boolean' => 'L\'attribut clé doit être un booléen',
+                'infos_generales.*.type.in' => 'Le type de champ doit être parmi: date, texte, montant, numéro',
             ]);
 
             if ($validator->fails()) {
@@ -264,7 +270,8 @@ class ParametrageController extends Controller
                         BRecInfoGeneral::create([
                             'bticket_id' => $ticket->id,
                             'libelle' => $info['libelle'],
-                            'key_attirubut' => $info['key_attribut']
+                            'key_attirubut' => $info['key_attribut'],
+                            'type' => $info['type'] ?? null,
                         ]);
                     }
                 }
@@ -322,6 +329,7 @@ class ParametrageController extends Controller
                         'id' => $info->id,
                         'libelle' => $info->libelle,
                         'key_attribut' => $info->key_attirubut,
+                        'type' => $info->type,
                     ];
                 }),
                 'types' => $ticket->types->map(function ($type) {

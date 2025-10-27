@@ -22,6 +22,7 @@ class BRecInfoGeneral extends Model
         'bticket_id',
         'libelle',
         'key_attirubut',
+        'type',
     ];
 
     /**
