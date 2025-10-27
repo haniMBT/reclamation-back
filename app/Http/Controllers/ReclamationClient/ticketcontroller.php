@@ -55,6 +55,7 @@ class TicketController extends Controller
                             'id' => $info->id,
                             'libelle' => $info->libelle,
                             'key_attirubut' => $info->key_attirubut,
+                            'type' => $info->type,
                         ];
                     })
                 ];
@@ -168,7 +169,7 @@ class TicketController extends Controller
             $formattedTickets = $tickets->getCollection()->map(function ($ticket) {
                 $baseTicket = $ticket->baseTicket;
                 $currentUserId = Auth::id();
-                
+
                 // Logique conditionnelle pour afficher le nom/prénom du créateur
                 // Masquer pour le créateur lui-même
                 $creatorInfo = null;
