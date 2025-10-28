@@ -40,8 +40,8 @@ Route::middleware(['auth:sanctum', 'check.token.expiration'])->group(function ()
     Route::post('rec/parametrage', [ParametrageController::class, 'store'])->name('parametrage.store');
     Route::put('rec/parametrage/{id}', [ParametrageController::class, 'update'])->name('parametrage.update');
     Route::delete('rec/parametrage/{id}', [ParametrageController::class, 'destroy'])->name('parametrage.destroy');
-
-    // Routes pour les tickets
+    // Ajout de la route pour le basculement d'activation
+    Route::patch('rec/parametrage/{id}/toggle', [ParametrageController::class, 'toggleActive'])->name('parametrage.toggle');
     Route::get('rec/tickets', [TicketController::class, 'index'])->name('tickets.index');
     Route::get('rec/tickets/files/{fileId}/download', [TicketController::class, 'downloadFile'])->name('tickets.files.download');
     Route::get('rec/tickets/indexAll', [TicketController::class, 'indexAll'])->name('tickets.indexAll');

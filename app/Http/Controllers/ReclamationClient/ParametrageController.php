@@ -67,6 +67,7 @@ class ParametrageController extends Controller
                     'direction' => $ticket->direction,
                     'possibilite_suppression' => $ticket->possibilite_suppression,
                     'definition' => $ticket->definition,
+                    'is_active' => $ticket->is_active,
                     'created_at' => $ticket->created_at,
                     'updated_at' => $ticket->updated_at,
                     'infos_generales' => $ticket->infosGenerales->map(function ($info) {
@@ -111,6 +112,56 @@ class ParametrageController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Erreur lors de la récupération des données',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Activer/désactiver un ticket. Lors de l'activation, désactiver les autres tickets de la même direction.
+     */
+    public function toggleActive(Request $request, int $id): JsonResponse
+    {
+        try {
+            $ticket = BRecTickets::find($id);
+            if (!$ticket) {
+                return response()->json([
+                    'error' => 'Ticket non trouvé',
+                    'message' => 'Le ticket avec l\'ID ' . $id . ' n\'existe pas.'
+                ], 404);
+            }
+
+            $validator = Validator::make($request->all(), [
+                'is_active' => 'required|boolean'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'error' => 'Erreur de validation',
+                    'messages' => $validator->errors()
+                ], 422);
+            }
+
+            return DB::transaction(function () use ($request, $ticket) {
+                $newState = (bool) $request->is_active;
+
+                if ($newState === true) {
+                    // Désactiver tous les autres tickets de la même direction
+                    BRecTickets::where('direction', $ticket->direction)
+                        ->where('id', '!=', $ticket->id)
+                        ->update(['is_active' => false]);
+                }
+                // Mettre à jour l'état du ticket courant
+                $ticket->update(['is_active' => $newState]);
+
+                return response()->json([
+                    'message' => 'Etat du ticket mis à jour',
+                    'ticket' => $ticket->fresh()
+                ], 200);
+            });
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Erreur lors de la mise à jour de l\'état',
                 'message' => $e->getMessage()
             ], 500);
         }
@@ -165,7 +216,8 @@ class ParametrageController extends Controller
                     'libelle' => $request->libelle,
                     'documentAfornir' => $request->documentAfornir,
                     'direction' => $request->direction,
-                    'definition' => $request->definition
+                    'definition' => $request->definition,
+                    'is_active' => false,
                 ]);
 
                 // Enregistrer les infos générales si elles sont fournies
@@ -323,6 +375,7 @@ class ParametrageController extends Controller
                 'documentAfornir' => $ticket->documentAfornir,
                 'direction' => $ticket->direction,
                 'definition' => $ticket->definition,
+                'is_active' => $ticket->is_active,
                 'created_at' => $ticket->created_at,
                 'updated_at' => $ticket->updated_at,
                 'infos_generales' => $ticket->infosGenerales->map(function ($info) {

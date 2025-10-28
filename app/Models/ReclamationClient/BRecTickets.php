@@ -23,6 +23,8 @@ class BRecTickets extends Model
         'documentAfornir',
         'direction',
         'definition',
+        // Ajout du champ d'activation
+        'is_active',
     ];
 
     /**
@@ -31,6 +33,8 @@ class BRecTickets extends Model
     protected $casts = [
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        // Cast en booléen pour is_active
+        'is_active' => 'boolean',
     ];
 
     /**
