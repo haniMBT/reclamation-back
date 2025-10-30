@@ -27,11 +27,13 @@ class TypeController extends Controller
         $validator = Validator::make($request->all(), [
             'types' => 'required|array',
             'types.*.libelle' => 'required|string|max:255',
-            'types.*.direction' => 'nullable|string|max:255',
+            'types.*.direction' => 'nullable|array',
+            'types.*.direction.*' => 'nullable|string|max:255',
             'types.*.statut_direction' => 'nullable|string|in:consultation,traitement',
             'types.*.details' => 'nullable|array',
             'types.*.details.*.libelle' => 'required|string|max:255',
-            'types.*.details.*.direction' => 'nullable|string|max:255',
+            'types.*.details.*.direction' => 'nullable|array',
+            'types.*.details.*.direction.*' => 'nullable|string|max:255',
             'types.*.details.*.statut_direction' => 'nullable|string|in:consultation,traitement',
         ]);
 

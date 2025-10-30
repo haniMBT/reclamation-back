@@ -34,6 +34,7 @@ class BRecDetail extends Model
     protected $casts = [
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'direction' => 'array'
     ];
 
     /**
@@ -52,7 +53,8 @@ class BRecDetail extends Model
         return [
             'id_btype' => 'required|exists:b_rec_type,id',
             'libelle' => 'required|string',
-            'direction' => 'nullable|string',
+            'direction' => 'nullable|array',
+            'direction.*' => 'nullable|string',
             'statut_direction' => ['nullable', Rule::in(self::STATUTS)],
         ];
     }

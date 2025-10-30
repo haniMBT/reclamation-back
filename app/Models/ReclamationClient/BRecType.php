@@ -36,6 +36,7 @@ class BRecType extends Model
     protected $casts = [
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'direction' => 'array'
     ];
 
     /**
@@ -62,7 +63,8 @@ class BRecType extends Model
         return [
             'id_btickes' => 'required|exists:b_rec_tickets,id',
             'libelle' => 'required|string',
-            'direction' => 'nullable|string',
+            'direction' => 'nullable|array',
+            'direction.*' => 'nullable|string',
             'statut_direction' => ['nullable', Rule::in(self::STATUTS)],
         ];
     }
