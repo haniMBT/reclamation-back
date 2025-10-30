@@ -1294,14 +1294,17 @@ class TicketController extends Controller
             foreach ($ticketTypes as $tRecType) {
                 if ($tRecType->b_rec_type_id) {
                     $bRecType = BRecType::find($tRecType->b_rec_type_id);
-                    if ($bRecType && $bRecType->direction!=null) {
-                        TRecTicketDirection::create([
-                            'tticket_id' => $ticketId,
-                            'direction' => $bRecType->direction,
-                            'statut_direction' => $bRecType->statut_direction,
-                            'source_orientation' => $bRecType->libelle,
-                            'type_orientation' => 'type'
-                        ]);
+                    if ($bRecType && $bRecType->direction != null) {
+                        $typeDirections = is_array($bRecType->direction) ? $bRecType->direction : [$bRecType->direction];
+                        foreach ($typeDirections as $dir) {
+                            TRecTicketDirection::create([
+                                'tticket_id' => $ticketId,
+                                'direction' => $dir,
+                                'statut_direction' => $bRecType->statut_direction,
+                                'source_orientation' => $bRecType->libelle,
+                                'type_orientation' => 'type'
+                            ]);
+                        }
                     }
                 }
             }
@@ -1311,14 +1314,17 @@ class TicketController extends Controller
             foreach ($ticketDetails as $tRecDetail) {
                 if ($tRecDetail->b_rec_detail_id) {
                     $bRecDetail = BRecDetail::find($tRecDetail->b_rec_detail_id);
-                    if ($bRecDetail && $bRecDetail->direction!=null) {
-                        TRecTicketDirection::create([
-                            'tticket_id' => $ticketId,
-                            'direction' => $bRecDetail->direction,
-                            'statut_direction' => $bRecDetail->statut_direction,
-                            'source_orientation' => $bRecDetail->libelle,
-                            'type_orientation' => 'detail'
-                        ]);
+                    if ($bRecDetail && $bRecDetail->direction != null) {
+                        $detailDirections = is_array($bRecDetail->direction) ? $bRecDetail->direction : [$bRecDetail->direction];
+                        foreach ($detailDirections as $dir) {
+                            TRecTicketDirection::create([
+                                'tticket_id' => $ticketId,
+                                'direction' => $dir,
+                                'statut_direction' => $bRecDetail->statut_direction,
+                                'source_orientation' => $bRecDetail->libelle,
+                                'type_orientation' => 'detail'
+                            ]);
+                        }
                     }
                 }
             }
