@@ -895,7 +895,9 @@ class TicketController extends Controller
                         'autre' => $autreDetails->first() ? $autreDetails->first()->libelle : ''
                     ];
                 }),
-                'files' => $ticket->files->map(function ($file) {
+                'files' => $ticket->files
+                ->whereNull('mode') // ✅ on filtre d'abord les fichiers dont le champ "mode" est null
+                ->map(function ($file) {
                     return [
                         'id' => $file->id,
                         'nom_fichier' => $file->nom_fichier,
