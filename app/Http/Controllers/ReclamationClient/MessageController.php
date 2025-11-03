@@ -26,7 +26,7 @@ class MessageController extends Controller
 
             $privilege = Auth::user()->scopePrivileges('message');
 
-            $ticket = TRecTicket::with('user')->find($ticketId);
+            $ticket = TRecTicket::with(['user', 'files' => function ($q) { $q->where('mode', 'conclusion'); }])->find($ticketId);
             $ticket->user_crateur = $ticket->user()->first();
             $ticket->privilege_crateur =  DB::table('p_privileges')->join('p_profils', 'p_profils.code', 'p_privileges.profil_code')
             ->where('p_profils.code', $ticket->user_crateur->privilege)->where('volet','message')

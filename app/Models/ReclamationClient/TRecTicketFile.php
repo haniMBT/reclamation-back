@@ -16,7 +16,8 @@ class TRecTicketFile extends Model
         'nom_fichier',
         'chemin_fichier',
         'taille_fichier',
-        'type_fichier'
+        'type_fichier',
+        'mode'
     ];
 
     /**
