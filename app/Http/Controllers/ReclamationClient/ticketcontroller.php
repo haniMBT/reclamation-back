@@ -783,7 +783,7 @@ class TicketController extends Controller
      * @param int $tticketId
      * @return void
      */
-    private function handleTicketFileUploads(array $files, int $tticketId): void
+    private function handleTicketFileUploads(array $files, int $tticketId, ?string $mode = null): void
     {
         foreach ($files as $file) {
             if ($file->isValid()) {
@@ -803,6 +803,7 @@ class TicketController extends Controller
                     'chemin_fichier' => 'public/' . $cheminComplet,
                     'taille_fichier' => $file->getSize(),
                     'type_fichier' => $file->getClientMimeType(),
+                    'mode' => $mode,
                 ]);
             }
         }
@@ -1562,6 +1563,11 @@ class TicketController extends Controller
             // Envoyer les notifications de clôture
             $notificationService = new NotificationService();
             $notificationService->createTicketClosureNotifications($ticket, $closedByUserId);
+
+            // Enregistrer les fichiers de conclusion s'ils existent
+            if ($request->hasFile('files')) {
+                $this->handleTicketFileUploads($request->file('files'), $ticketId, 'conclusion');
+            }
 
             return response()->json([
                 'success' => true,
