@@ -362,7 +362,8 @@ class TicketController extends Controller
                     'success' => false,
                     'message' => 'Il existe déjà une réclamation avec les mêmes informations clés.',
                     'duplicate_found' => true,
-                    // Ajout des données de clôture pour affichage dans le modal de vérification
+                    // Données pour affichage dans le modal de vérification
+                    'description' => $existingClosedTicket ? $existingClosedTicket->description : null,
                     'conclusion' => $existingClosedTicket ? $existingClosedTicket->conclusion : null,
                     'files' => $closureFiles,
                 ], 200);
