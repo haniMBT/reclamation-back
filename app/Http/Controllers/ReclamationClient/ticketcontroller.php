@@ -334,10 +334,37 @@ class TicketController extends Controller
             $isDuplicate = $matchingCount === $keyAttributes->count();
 
             if ($isDuplicate) {
+                // Rechercher un ticket déjà traité (clôturé ou recours clôturé) pour ce bticket
+                $existingClosedTicket = \App\Models\ReclamationClient\TRecTicket::with(['files' => function ($query) {
+                    $query->where('mode', 'conclusion');
+                }])
+                ->where('bticket_id', $bticketId)
+                ->whereIn('status', ['clôturé', 'Recours clôturé'])
+                ->orderByDesc('closed_at')
+                ->first();
+
+                // Préparer les fichiers de clôture au format attendu par le frontend
+                $closureFiles = [];
+                if ($existingClosedTicket) {
+                    $closureFiles = $existingClosedTicket->files->map(function ($fichier) {
+                        return [
+                            'id' => $fichier->id,
+                            'nom_fichier' => $fichier->nom_fichier ?? $fichier->filename,
+                            'chemin_fichier' => $fichier->chemin_fichier ?? $fichier->path,
+                            'taille_fichier' => isset($fichier->taille_fichier) ? $fichier->taille_fichier : ($fichier->size ?? 0),
+                            'type_fichier' => $fichier->type_fichier ?? $fichier->mime_type,
+                            'created_at' => $fichier->created_at,
+                        ];
+                    })->toArray();
+                }
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Il existe déjà une réclamation avec les mêmes informations clés.',
-                    'duplicate_found' => true
+                    'duplicate_found' => true,
+                    // Ajout des données de clôture pour affichage dans le modal de vérification
+                    'conclusion' => $existingClosedTicket ? $existingClosedTicket->conclusion : null,
+                    'files' => $closureFiles,
                 ], 200);
             }
 
