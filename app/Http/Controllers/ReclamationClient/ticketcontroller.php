@@ -320,39 +320,39 @@ class TicketController extends Controller
                 return $this->insertTicketData($bticketId, $userId, $direction, $status, $infoGeneralData, $objet);
             }
 
-            // Construire la requête pour vérifier les doublons
-            $query = DB::table('t_rec_info_general')
-                ->where('tticket_id', $bticketId)
-                ->where('key_attribut', true);
+            // Nouvelle logique: trouver les tickets (tticket_id) qui possèdent TOUTES les paires (info_general_id, value)
+            $matchingTicketIds = null;
+            foreach ($keyAttributes as $attr) {
+                $ids = collect(DB::table('t_rec_info_general')
+                    ->where('info_general_id', $attr['info_general_id'])
+                    ->where('value', $attr['value'])
+                    ->pluck('tticket_id'))
+                    ->unique();
 
-            // Ajouter les conditions pour chaque attribut clé
-            $keyAttributes->each(function ($item) use (&$query) {
-                $query->orWhere(function ($subQuery) use ($item) {
-                    $subQuery->where('info_general_id', $item['info_general_id'])
-                             ->where('value', $item['value']);
-                });
-            });
+                if ($matchingTicketIds === null) {
+                    $matchingTicketIds = $ids;
+                } else {
+                    $matchingTicketIds = $matchingTicketIds->intersect($ids);
+                }
+            }
 
-            // Compter le nombre d'attributs clés qui correspondent
-            $matchingCount = $query->count();
+            $matchingTicketIdsArr = $matchingTicketIds ? $matchingTicketIds->values()->toArray() : [];
 
-            // Si tous les attributs clés correspondent, c'est un doublon
-            $isDuplicate = $matchingCount >= $keyAttributes->count();
+            // Un doublon existe si au moins un ticket correspond à toutes les informations clés
+            $isDuplicate = count($matchingTicketIdsArr) > 0;
 
             if ($isDuplicate) {
-                // Rechercher un ticket déjà traité (clôturé ou recours clôturé) pour ce bticket
-                $existingClosedTicket = \App\Models\ReclamationClient\TRecTicket::with(['files' => function ($query) {
+                // Charger toutes les réclamations correspondantes et leurs fichiers de conclusion
+                $existingTickets = \App\Models\ReclamationClient\TRecTicket::with(['files' => function ($query) {
                     $query->where('mode', 'conclusion');
                 }])
-                ->where('bticket_id', $bticketId)
+                ->whereIn('id', $matchingTicketIdsArr)
                 ->whereIn('status', ['clôturé', 'Recours clôturé'])
                 ->orderByDesc('closed_at')
-                ->first();
+                ->get();
 
-                // Préparer les fichiers de clôture au format attendu par le frontend
-                $closureFiles = [];
-                if ($existingClosedTicket) {
-                    $closureFiles = $existingClosedTicket->files->map(function ($fichier) {
+                $duplicates = $existingTickets->map(function ($ticket) {
+                    $closureFiles = $ticket->files->map(function ($fichier) {
                         return [
                             'id' => $fichier->id,
                             'nom_fichier' => $fichier->nom_fichier ?? $fichier->filename,
@@ -362,16 +362,22 @@ class TicketController extends Controller
                             'created_at' => $fichier->created_at,
                         ];
                     })->toArray();
-                }
+
+                    return [
+                        'id' => $ticket->id,
+                        'objet' => $ticket->objet,
+                        'description' => $ticket->description,
+                        'conclusion' => $ticket->conclusion,
+                        'closed_at' => $ticket->closed_at,
+                        'files' => $closureFiles,
+                    ];
+                })->values()->toArray();
 
                 return response()->json([
                     'success' => false,
-                    'message' => 'Il existe déjà une réclamation avec les mêmes informations clés.',
+                    'message' => '⚠️ Cette réclamation (ou des réclamations similaires) ont déjà été traitées.',
                     'duplicate_found' => true,
-                    // Données pour affichage dans le modal de vérification
-                    'description' => $existingClosedTicket ? $existingClosedTicket->description : null,
-                    'conclusion' => $existingClosedTicket ? $existingClosedTicket->conclusion : null,
-                    'files' => $closureFiles,
+                    'duplicates' => $duplicates,
                 ], 200);
             }
 
