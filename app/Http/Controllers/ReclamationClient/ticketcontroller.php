@@ -337,7 +337,7 @@ class TicketController extends Controller
             $matchingCount = $query->count();
 
             // Si tous les attributs clés correspondent, c'est un doublon
-            $isDuplicate = $matchingCount === $keyAttributes->count();
+            $isDuplicate = $matchingCount >= $keyAttributes->count();
 
             if ($isDuplicate) {
                 // Rechercher un ticket déjà traité (clôturé ou recours clôturé) pour ce bticket
