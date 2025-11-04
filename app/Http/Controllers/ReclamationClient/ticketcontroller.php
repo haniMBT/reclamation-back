@@ -283,7 +283,8 @@ class TicketController extends Controller
                 'info_general_data.*.info_general_id' => 'required|integer|min:1',
                 'info_general_data.*.value' => 'required|string|min:1|max:255',
                 'info_general_data.*.key_attribut' => 'required|boolean',
-                'info_general_data.*.type' => 'nullable|string|in:date,texte,montant,numéro'
+                'info_general_data.*.type' => 'nullable|string|in:date,texte,montant,numéro',
+                'ignore_duplicate' => 'sometimes|boolean'
             ], [
                 'bticket_id.required' => 'L\'identifiant du ticket est requis.',
                 'bticket_id.exists' => 'Le ticket sélectionné n\'existe pas.',
@@ -303,6 +304,11 @@ class TicketController extends Controller
             $status = $request->input('status');
             $objet = $request->input('objet');
             $infoGeneralData = $request->input('info_general_data');
+
+            // Option de contournement: créer directement sans vérifier les doublons
+            if ($request->boolean('ignore_duplicate')) {
+                return $this->insertTicketData($bticketId, $userId, $direction, $status, $infoGeneralData, $objet);
+            }
 
             // Filtrer seulement les champs avec key_attribut = true
             $keyAttributes = collect($infoGeneralData)->filter(function ($item) {
