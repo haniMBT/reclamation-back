@@ -1593,14 +1593,30 @@ class TicketController extends Controller
             $ticket = TRecTicket::findOrFail($ticketId);
             $closedByUserId = \Illuminate\Support\Facades\Auth::id();
 
-            $ticket->update([
-                'status' => $ticket->status == 'Recours' ? 'Recours clôturé' : 'clôturé',
-                'closed_at' => $ticket->status == 'Recours' ? $ticket->closed_at : now(),
-                'date_cloture_recours' => $ticket->status == 'Recours' ? now() : $ticket->date_cloture_recours,
-                'closed_by' => $closedByUserId,
-                'reply_permission' => $ticket->status == 'Recours' ? 'employe_Répondeur' : $ticket->reply_permission,
-                'conclusion' => $request->input('conclusion')
-            ]);
+            // Transaction pour garantir l'atomicité des mises à jour
+            \Illuminate\Support\Facades\DB::transaction(function () use ($ticket, $closedByUserId, $request, $ticketId) {
+                // Mise à jour du ticket
+                $ticket->update([
+                    'status' => $ticket->status == 'Recours' ? 'Recours clôturé' : 'clôturé',
+                    'closed_at' => $ticket->status == 'Recours' ? $ticket->closed_at : now(),
+                    'date_cloture_recours' => $ticket->status == 'Recours' ? now() : $ticket->date_cloture_recours,
+                    'closed_by' => $closedByUserId,
+                    'reply_permission' => $ticket->status == 'Recours' ? 'employe_Répondeur' : $ticket->reply_permission,
+                    'conclusion' => $request->input('conclusion')
+                ]);
+
+                // Mise à jour des orientations liées au ticket pour passage en recour
+                if ($ticket->status == 'clôturé') {
+                    $directions = \App\Models\ReclamationClient\TRecTicketDirection::where('tticket_id', $ticketId)->get();
+                    foreach ($directions as $dir) {
+                        if ($dir->type_orientation !== 'recour') {
+                            $dir->old_orientation = $dir->type_orientation;
+                            $dir->type_orientation = 'recour';
+                            $dir->save();
+                        }
+                    }
+                }
+            });
 
             // Envoyer les notifications de clôture
             $notificationService = new NotificationService();

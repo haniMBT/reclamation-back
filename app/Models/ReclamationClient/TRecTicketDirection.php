@@ -25,6 +25,7 @@ class TRecTicketDirection extends Model
         'statut_direction',
         'source_orientation',
         'type_orientation',
+        'old_orientation',
     ];
 
     /**
