@@ -7,6 +7,8 @@ use App\Models\Direction;
 use App\Models\ReclamationClient\BRecTickets;
 use App\Models\ReclamationClient\TRecTicket;
 use App\Models\ReclamationClient\BRecInfoGeneral;
+use App\Models\ReclamationClient\TRecCommissionRecours;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
@@ -101,11 +103,25 @@ class ParametrageController extends Controller
                 ];
             });
 
+            // Charger les utilisateurs disponibles pour la commission (filtrage par visibilité si nécessaire)
+            $usersQuery = User::query();
+            // if (in_array($privilege->visibilite, ['P','L'])) {
+            //     $usersQuery->where('direction', Auth::user()->direction);
+            // }
+            $users = $usersQuery->select('id','Nom','Prenom','Email','Matricule','direction')->get();
+
+            // Charger la composition actuelle de la commission de recours
+            $commission = TRecCommissionRecours::select('id','user_id','nom','prenom','email','matricule','direction','role','created_at','updated_at')
+                ->orderByDesc('role') // président en premier
+                ->get();
+
             $data = [
                 'tickets' => $formattedTickets,
                 'directions' => $directions,
                 'directions_visibilite' => $directions_visibilite,
-                'privilege' => $privilege
+                'privilege' => $privilege,
+                'users' => $users,
+                'commission_recours' => $commission,
             ];
 
             return response()->json($data, 200);
@@ -113,6 +129,96 @@ class ParametrageController extends Controller
             return response()->json([
                 'error' => 'Erreur lors de la récupération des données',
                 'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Enregistrer / mettre à jour la composition de la commission de recours
+     */
+    public function saveCommissionRecours(Request $request): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'president_id' => 'required|',
+                'member_ids' => 'nullable|array',
+                // 'member_ids.*' => 'string'
+            ], [
+                'president_id.required' => 'Le président est obligatoire.'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Données invalides',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $presidentId = $request->input('president_id');
+            $memberIds = collect($request->input('member_ids', []))
+                ->filter(fn($id) => $id !== $presidentId)
+                ->unique()
+                ->values();
+
+            // Vérifier l'existence des utilisateurs
+            $allUserIds = collect([$presidentId])->merge($memberIds)->values();
+            $users = User::whereIn('id', $allUserIds)->get()->keyBy('id');
+
+            if (!$users->has($presidentId)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Président introuvable'
+                ], 404);
+            }
+
+            // Réinitialiser la composition (remplacer les anciens enregistrements)
+            DB::transaction(function () use ($users, $presidentId, $memberIds) {
+                TRecCommissionRecours::query()->delete();
+
+                // Enregistrer le président
+                $p = $users->get($presidentId);
+                TRecCommissionRecours::create([
+                    'user_id' => $p->id,
+                    'nom' => $p->Nom ?? null,
+                    'prenom' => $p->Prenom ?? null,
+                    'email' => $p->Email ?? null,
+                    'matricule' => $p->Matricule ?? null,
+                    'direction' => $p->direction ?? null,
+                    'role' => 'président',
+                ]);
+
+                // Enregistrer les membres
+                foreach ($memberIds as $mid) {
+                    if ($users->has($mid)) {
+                        $m = $users->get($mid);
+                        TRecCommissionRecours::create([
+                            'user_id' => $m->id,
+                            'nom' => $m->Nom ?? null,
+                            'prenom' => $m->Prenom ?? null,
+                            'email' => $m->Email ?? null,
+                            'matricule' => $m->Matricule ?? null,
+                            'direction' => $m->direction ?? null,
+                            'role' => 'membre',
+                        ]);
+                    }
+                }
+            });
+
+            $commission = TRecCommissionRecours::select('id','user_id','nom','prenom','email','matricule','direction','role','created_at','updated_at')
+                ->orderByDesc('role')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Composition de la commission mise à jour',
+                'commission_recours' => $commission
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la mise à jour de la commission',
+                'error' => $e->getMessage()
             ], 500);
         }
     }
