@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use App\Models\ReclamationClient\TRecCommissionRecours;
 
 class MessageController extends Controller
 {
@@ -31,7 +32,6 @@ class MessageController extends Controller
             $ticket->privilege_crateur =  DB::table('p_privileges')->join('p_profils', 'p_profils.code', 'p_privileges.profil_code')
             ->where('p_profils.code', $ticket->user_crateur->privilege)->where('volet','message')
             ->select('p_privileges.*')->first();
-            
             // Logique conditionnelle pour afficher le nom/prénom du créateur
             // Masquer pour le créateur lui-même
             $currentUserId = Auth::id();
@@ -114,6 +114,9 @@ class MessageController extends Controller
                 ->orderBy('date_envoie', 'desc')
                 ->get();
 
+            // Commission de recours: flags pour la page messages
+            $isCommissionMember = TRecCommissionRecours::where('user_id', Auth::id())->exists();
+            $isPresidentCommission = TRecCommissionRecours::where('user_id', Auth::id())->where('role', 'président')->exists();
 
             return response()->json([
                 'success' => true,
@@ -121,7 +124,9 @@ class MessageController extends Controller
                 'privilege' => $privilege,
                 'ticket' => $ticket,
                 'ticket_direction' => $ticket_direction,
-                'createur' => $creatorInfo // Informations du créateur (null si c'est le créateur lui-même)
+                'createur' => $creatorInfo, // Informations du créateur (null si c'est le créateur lui-même)
+                'is_commission_member' => $isCommissionMember,
+                'is_commission_president' => $isPresidentCommission
             ]);
         } catch (\Exception $e) {
             return response()->json([
