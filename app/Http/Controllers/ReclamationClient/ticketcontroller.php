@@ -256,6 +256,7 @@ class TicketController extends Controller
                 'message' => 'Tickets récupérés avec succès',
                 'data' => [
                     'privilege' => $privilege,
+                    'is_commission_member' => isset($isCommissionMember) ? $isCommissionMember : false,
                     'items' => $formattedTickets,
                     'meta' => [
                         'current_page' => $tickets->currentPage(),
