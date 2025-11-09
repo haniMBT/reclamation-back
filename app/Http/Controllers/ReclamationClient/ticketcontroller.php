@@ -99,16 +99,17 @@ class TicketController extends Controller
             $dateTo = $request->get('date_to', '');
             $typeId = $request->get('type_id', '');
 
-            // Query de base avec eager loading
-            $query = TRecTicket::with([
-                'baseTicket.infosGenerales',
-                'types.bRecType',
-                'types.details.bRecDetail',
-                'user' // Ajouter la relation avec l'utilisateur créateur
-            ]);
-
-            // Privilege
+               // Privilege
             if (!empty($privilege)) {
+                // Query de base avec eager loading
+                $query = TRecTicket::with([
+                    'baseTicket.infosGenerales',
+                    'types.bRecType',
+                    'types.details.bRecDetail',
+                    'user' // Ajouter la relation avec l'utilisateur créateur
+                ]);
+
+
                 if ($privilege->role == 'employe_Répondeur') {
                 //    if(Auth::user()->direction == 'CAB'){
                         $tticket_ids = TRecTicketDirection::where('direction', Auth::user()->direction)
@@ -121,7 +122,6 @@ class TicketController extends Controller
                 }else{ // esq tous les utilisateur en le droit de cree une reclamaation ou non
                     $query->where('t_rec_tickets.user_id', Auth::id());
                 }
-            }
 
 
             // Filtrage par recherche globale
@@ -167,8 +167,12 @@ class TicketController extends Controller
             $tickets = $query->orderBy('created_at', 'desc')
                            ->paginate($perPage, ['*'], 'page', $page);
 
+            } else {
+                $tickets = null;
+            }
+
             // Formater les données
-            $formattedTickets = $tickets->getCollection()->map(function ($ticket) {
+            $formattedTickets = $tickets?->getCollection()->map(function ($ticket) {
                 $baseTicket = $ticket->baseTicket;
                 $currentUserId = Auth::id();
 
