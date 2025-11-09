@@ -117,6 +117,10 @@ class MessageController extends Controller
             // Commission de recours: flags pour la page messages
             $isCommissionMember = TRecCommissionRecours::where('user_id', Auth::id())->exists();
             $isPresidentCommission = TRecCommissionRecours::where('user_id', Auth::id())->where('role', 'président')->exists();
+            // Charger la liste des membres de la commission pour éviter un second appel API côté frontend
+            $commissionMembers = TRecCommissionRecours::select('user_id','nom','prenom','email','matricule','direction','role')
+                ->orderByDesc(DB::raw("role = 'président'"))
+                ->get();
 
             return response()->json([
                 'success' => true,
@@ -126,7 +130,8 @@ class MessageController extends Controller
                 'ticket_direction' => $ticket_direction,
                 'createur' => $creatorInfo, // Informations du créateur (null si c'est le créateur lui-même)
                 'is_commission_member' => $isCommissionMember,
-                'is_commission_president' => $isPresidentCommission
+                'is_commission_president' => $isPresidentCommission,
+                'commission_recours' => $commissionMembers
             ]);
         } catch (\Exception $e) {
             return response()->json([
