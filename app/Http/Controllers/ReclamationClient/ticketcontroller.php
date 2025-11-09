@@ -10,6 +10,7 @@ use App\Models\ReclamationClient\TRecDetail;
 use App\Models\ReclamationClient\BRecType;
 use App\Models\ReclamationClient\BRecDetail;
 use App\Models\ReclamationClient\FichierClient;
+use App\Models\ReclamationClient\TRecCommissionRecours;
 use App\Models\ReclamationClient\TRecTicketFile;
 use App\Models\ReclamationClient\TRecInfoGeneral;
 use Illuminate\Support\Facades\Auth;
@@ -121,6 +122,15 @@ class TicketController extends Controller
                     // }
                 }else{ // esq tous les utilisateur en le droit de cree une reclamaation ou non
                     $query->where('t_rec_tickets.user_id', Auth::id());
+                }
+
+                // // Logique complémentaire: membres de la commission de recours
+                $isCommissionMember = TRecCommissionRecours::where('user_id', Auth::id())->exists();
+                if ($isCommissionMember) {
+                    // Étendre la visibilité: inclure les tickets en recours ou recours clôturé
+                    $query->orWhere(function ($q) {
+                        $q->whereIn('t_rec_tickets.status', ['Recours', 'Recours clôturé']);
+                    });
                 }
 
 
