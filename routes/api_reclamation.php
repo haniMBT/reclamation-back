@@ -6,6 +6,7 @@ use App\Http\Controllers\ReclamationClient\ParametrageController;
 use App\Http\Controllers\ReclamationClient\TicketController;
 use App\Http\Controllers\ReclamationClient\TypeController;
 use App\Http\Controllers\ReclamationClient\MessageController;
+use App\Http\Controllers\ReclamationClient\MessageRecoursController;
 use App\Http\Controllers\ReclamationClient\NotificationController;
 use App\Http\Controllers\DirectionController;
 use Illuminate\Support\Facades\Route;
@@ -73,14 +74,16 @@ Route::middleware(['auth:sanctum', 'check.token.expiration'])->group(function ()
     Route::delete('rec/directions/{id}', [DirectionController::class, 'destroy'])->name('directions.destroy');
 
     // Routes pour les messages
-    Route::get('rec/tickets/{ticketId}/messages', [MessageController::class, 'index'])->name('messages.index');
-    Route::post('rec/tickets/{ticketId}/messages', [MessageController::class, 'store'])->name('messages.store');
-    Route::post('rec/tickets/{ticketId}/messages/reply', [MessageController::class, 'reply'])->name('messages.reply');
-    Route::post('rec/tickets/{ticketId}/messages/recour', [MessageController::class, 'recour'])->name('messages.recour');
-    Route::get('rec/messages/{id}', [MessageController::class, 'show'])->name('messages.show');
-    Route::put('rec/messages/{id}/mark-as-read', [MessageController::class, 'markAsRead'])->name('messages.markAsRead');
-    Route::delete('rec/tickets/{ticketId}/messages/{id}', [MessageController::class, 'destroy'])->name('messages.destroy');
-    Route::get('rec/messages/attachments/{id}/download', [MessageController::class, 'downloadAttachment'])->name('messages.downloadAttachment');
+Route::get('rec/tickets/{ticketId}/messages', [MessageController::class, 'index'])->name('messages.index');
+Route::post('rec/tickets/{ticketId}/messages', [MessageController::class, 'store'])->name('messages.store');
+Route::post('rec/tickets/{ticketId}/messages/reply', [MessageController::class, 'reply'])->name('messages.reply');
+Route::post('rec/tickets/{ticketId}/messages/recour', [MessageController::class, 'recour'])->name('messages.recour');
+// Nouvelle API dédiée aux messages de recours (sans notifications, destinataires par membres)
+Route::post('rec/tickets/{ticketId}/messages-recours', [MessageRecoursController::class, 'store'])->name('messages.recours.store');
+Route::get('rec/messages/{id}', [MessageController::class, 'show'])->name('messages.show');
+Route::put('rec/messages/{id}/mark-as-read', [MessageController::class, 'markAsRead'])->name('messages.markAsRead');
+Route::delete('rec/tickets/{ticketId}/messages/{id}', [MessageController::class, 'destroy'])->name('messages.destroy');
+Route::get('rec/messages/attachments/{id}/download', [MessageController::class, 'downloadAttachment'])->name('messages.downloadAttachment');
 
     // Routes pour les notifications
     Route::get('rec/notifications', [NotificationController::class, 'index'])->name('notifications.index');
