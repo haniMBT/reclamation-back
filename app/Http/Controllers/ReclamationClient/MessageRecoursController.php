@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Validator;
 use App\Models\ReclamationClient\TRecMessage;
 use App\Models\ReclamationClient\TRecDestinataireMessage;
 use App\Models\ReclamationClient\TRecFicherMessage;
+use App\Models\ReclamationClient\TRecCommissionRecours;
 
 class MessageRecoursController extends Controller
 {
@@ -60,11 +61,14 @@ class MessageRecoursController extends Controller
                 // Pas de message_vers spécifique
             ]);
 
-            // 2. Créer les enregistrements destinataires en tant que membres (user:{id})
+            // 2. Créer les enregistrements destinataires en tant que membres (Nom Prénom)
+            $members = TRecCommissionRecours::whereIn('user_id', $recipientUserIds)->get()->keyBy('user_id');
             foreach ($recipientUserIds as $userId) {
+                $m = $members->get($userId);
+                $destName = $m ? trim(($m->prenom ?? '') . ' ' . ($m->nom ?? '')) : ('Utilisateur ' . $userId);
                 TRecDestinataireMessage::create([
                     'message_id' => $message->id,
-                    'direction_destinataire' => 'user:' . $userId,
+                    'direction_destinataire' => $destName,
                     'statut' => 'non_lu'
                 ]);
             }
