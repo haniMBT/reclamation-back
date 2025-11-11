@@ -496,6 +496,63 @@ class NotificationService
     }
 
     /**
+     * Créer des notifications pour un message envoyé entre membres de la commission de recours
+     *
+     * @param TRecTicket $ticket
+     * @param int $senderId ID de l'expéditeur (membre de la commission)
+     * @param array $recipientUserIds Liste des user_id des membres destinataires
+     * @return void
+     */
+    public function createCommissionMessageNotifications(TRecTicket $ticket, int $senderId, array $recipientUserIds): void
+    {
+        try {
+            if (!$ticket->relationLoaded('baseTicket')) {
+                $ticket->load('baseTicket');
+            }
+            $libelle = $ticket->baseTicket ? $ticket->baseTicket->libelle : '';
+
+            // Préparer les données de l'expéditeur
+            $senderUser = \App\Models\User::find($senderId);
+            $senderName = $senderUser
+                ? trim(($senderUser->Prenom ?? '') . ' ' . ($senderUser->Nom ?? ''))
+                : 'Utilisateur inconnu';
+
+            // Récupérer les membres destinataires de la commission
+            $recipients = TRecCommissionRecours::whereIn('user_id', $recipientUserIds)
+                ->select('user_id', 'direction', 'prenom', 'nom')
+                ->get();
+
+            foreach ($recipients as $recipient) {
+                // Ne pas notifier l'expéditeur lui-même
+                if (!$recipient || !$recipient->user_id || $recipient->user_id == $senderId) {
+                    continue;
+                }
+
+                $this->createNotification([
+                    'tticket_id' => $ticket->id,
+                    'sender_id' => $senderId,
+                    'id_recepteur' => $recipient->user_id,
+                    'direction' => $recipient->direction,
+                    'message' => "{$senderName} vous a envoyé un message concernant la réclamation \"{$ticket->objet}\".",
+                    'type' => 'message_commission_recours',
+                    'mode' => null,
+                    'meta' => [
+                        'ticket_title' => $ticket->objet,
+                        'sender_name' => $senderName,
+                        'sender_direction' => $senderUser ? $senderUser->direction : null,
+                        'status' => $ticket->status
+                    ],
+                    'is_read' => 0
+                ]);
+            }
+
+            Log::info("Notifications créées pour message commission du ticket {$ticket->id} vers membres: " . implode(', ', $recipientUserIds));
+        } catch (\Exception $e) {
+            Log::error("Erreur lors de la création des notifications de message commission pour le ticket {$ticket->id}: " . $e->getMessage());
+        }
+    }
+
+    /**
      * Créer des notifications pour l'ajout d'une direction à un ticket
      *
      * @param TRecTicket $ticket

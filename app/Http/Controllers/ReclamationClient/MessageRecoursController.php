@@ -94,10 +94,10 @@ class MessageRecoursController extends Controller
                 }
             }
 
-            // 4. Envoyer les notifications automatiques de recours (directions + commission)
+            // 4. Envoyer les notifications aux membres destinataires de la commission
             $ticket = TRecTicket::findOrFail($ticketId);
             $notificationService = new NotificationService();
-            // $notificationService->createRecoursCreationNotifications($ticket, $user->id);
+            $notificationService->createCommissionMessageNotifications($ticket, $user->id, $recipientUserIds);
 
             DB::commit();
 
