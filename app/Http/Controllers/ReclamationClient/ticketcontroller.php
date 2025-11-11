@@ -1627,6 +1627,7 @@ class TicketController extends Controller
                         if ($dir->type_orientation !== 'recour') {
                             $dir->old_orientation = $dir->type_orientation;
                             $dir->type_orientation = 'recour';
+                            $dir->statut_direction = 'consultation';
                             $dir->save();
                         }
                     }
