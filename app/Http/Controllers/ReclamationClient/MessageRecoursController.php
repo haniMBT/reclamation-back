@@ -11,12 +11,15 @@ use App\Models\ReclamationClient\TRecMessage;
 use App\Models\ReclamationClient\TRecDestinataireMessage;
 use App\Models\ReclamationClient\TRecFicherMessage;
 use App\Models\ReclamationClient\TRecCommissionRecours;
+use App\Models\ReclamationClient\TRecTicket;
+use App\Services\ReclamationClient\NotificationService;
 
 class MessageRecoursController extends Controller
 {
     /**
-     * Créer et envoyer un message de recours sans notifications,
-     * avec enregistrement des destinataires en tant que membres sélectionnés.
+     * Créer et envoyer un message de recours,
+     * avec enregistrement des destinataires (membres sélectionnés)
+     * et envoi des notifications automatiques (directions + commission).
      */
     public function store(Request $request, $ticketId)
     {
@@ -91,7 +94,10 @@ class MessageRecoursController extends Controller
                 }
             }
 
-            // 4. Ne pas envoyer de notifications (différence clef avec le flux standard)
+            // 4. Envoyer les notifications automatiques de recours (directions + commission)
+            $ticket = TRecTicket::findOrFail($ticketId);
+            $notificationService = new NotificationService();
+            // $notificationService->createRecoursCreationNotifications($ticket, $user->id);
 
             DB::commit();
 

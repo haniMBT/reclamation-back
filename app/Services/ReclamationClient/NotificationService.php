@@ -5,6 +5,7 @@ namespace App\Services\ReclamationClient;
 use App\Models\ReclamationClient\TRecNotification;
 use App\Models\ReclamationClient\TRecTicket;
 use App\Models\ReclamationClient\TRecTicketDirection;
+use App\Models\ReclamationClient\TRecCommissionRecours;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -290,6 +291,37 @@ class NotificationService
                 }
             }
 
+            // Notifications pour la commission de recours (président et membres)
+            $commission = TRecCommissionRecours::select('user_id', 'role', 'direction', 'prenom', 'nom')->get();
+            foreach ($commission as $member) {
+                // Ne pas notifier l'auteur du recours
+                if (!$member || !$member->user_id || $member->user_id == $recoursAuthorId) {
+                    continue;
+                }
+
+                $role = strtolower(trim($member->role ?? ''));
+                $baseMessage = "Un nouveau recours a été enregistré pour la réclamation \"{$ticket->objet}\".";
+                $messageText = $baseMessage . ' Vous êtes invité à participer au traitement en tant que ' . (
+                    $role === 'président' ? 'président' : 'membre'
+                ) . ' de la commission de recours.';
+
+                $this->createNotification([
+                    'tticket_id' => $ticket->id,
+                    'sender_id' => $recoursAuthorId,
+                    'id_recepteur' => $member->user_id,
+                    'direction' => $member->direction,
+                    'message' => $messageText,
+                    'type' => 'creation_recours_commission',
+                    'mode' => null,
+                    'meta' => [
+                        'ticket_title' => $ticket->objet,
+                        'commission_role' => $member->role,
+                        'member_name' => trim(($member->prenom ?? '') . ' ' . ($member->nom ?? ''))
+                    ],
+                    'is_read' => 0
+                ]);
+            }
+
             Log::info("Notifications créées pour le recours du ticket {$ticket->id}");
 
         } catch (\Exception $e) {
@@ -426,8 +458,6 @@ class NotificationService
                 : 'Utilisateur inconnu';
 
             $ticketDirectionsDestinaires = TRecTicketDirection::where('tticket_id', $ticket->id)->whereIN('direction',$directionsDestinaires)->get();
-
-
             // Pour chaque direction destinataire
             foreach ($ticketDirectionsDestinaires as $ticketDirection) {
                 // Trouver les utilisateurs employés répondeurs de cette direction
@@ -437,7 +467,7 @@ class NotificationService
                 // foreach ($targetUsers as $targetUser) {
 
                     // Ne pas notifier l'expéditeur lui-même
-                    if ($targetUser->id != $senderId) {
+                    if ($targetUser && $targetUser->id != $senderId) {
                         $this->createNotification([
                             'tticket_id' => $ticket->id,
                             'sender_id' => $senderId,
