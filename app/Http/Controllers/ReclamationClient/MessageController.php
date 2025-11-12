@@ -263,7 +263,11 @@ class MessageController extends Controller
         try {
             $user = Auth::user();
             $ticket = TRecTicket::findOrFail($ticketId);
-            $updateData = ['status' => 'Recours'];
+            // Passage en statut Recours : limiter la réponse à l'employé répondeur
+            $updateData = [
+                'status' => 'Recours',
+                'reply_permission' => 'employe_Répondeur',
+            ];
             // Ajouter la date_recours seulement si elle n'est pas déjà définie
             if (is_null($ticket->date_recours)) {
                 $updateData['date_recours'] = now();
