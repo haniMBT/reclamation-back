@@ -208,6 +208,8 @@ class NotificationService
             // 2. Envoyer des notifications aux utilisateurs concernés (comme après validation)
             // Récupérer toutes les directions associées au ticket
             $ticketDirections = TRecTicketDirection::where('tticket_id', $ticket->id)->get();
+            // Récupérer les membres de la commission pour filtrer les répondeurs en double rôle sur clôture de recours
+            $commissionUserIds = TRecCommissionRecours::pluck('user_id')->filter()->unique()->values()->all();
 
             // Pour chaque direction, trouver un utilisateur avec le rôle employe_Répondeur
             foreach ($ticketDirections as $ticketDirection) {
@@ -218,6 +220,10 @@ class NotificationService
                 if ($targetUser && $targetUser->id != $closedByUserId) {
                     // Adapter le message selon le type de clôture
                     $isRecoursClotured = $ticket->status === 'Recours clôturé';
+                    // Si recours clôturé et l'utilisateur est aussi membre commission, on ne notifie pas en tant que répondeur
+                    if ($isRecoursClotured && in_array($targetUser->id, $commissionUserIds, true)) {
+                        continue;
+                    }
                     $messageText = $isRecoursClotured
                         ? "Le recours de {$clientName} sur la réclamation \"{$ticket->objet}\" a été clôturé."
                         : "La réclamation de {$clientName} \"{$ticket->objet}\" a été clôturée.";
@@ -286,13 +292,17 @@ class NotificationService
 
             $libelle = $ticket->baseTicket ? $ticket->baseTicket->libelle : '';
 
+            // Récupérer les membres de la commission (pour éviter la double notification côté répondeur)
+            $commissionUserIds = TRecCommissionRecours::pluck('user_id')->filter()->unique()->values()->all();
+
             // Pour chaque direction, trouver un utilisateur avec le rôle employe_Répondeur
             foreach ($ticketDirections as $ticketDirection) {
                 $targetUser = $this->findEmployeRepondeursByDirection($ticketDirection->direction);
 
                 // Créer une notification seulement si un utilisateur valide est trouvé
-                // et que ce n'est pas l'auteur du recours
-                if ($targetUser && $targetUser->id != $recoursAuthorId) {
+                // et que ce n'est pas l'auteur du recours. Si l'utilisateur est aussi membre
+                // de la commission, ne pas le notifier côté répondeur (on privilégie la notification commission).
+                if ($targetUser && $targetUser->id != $recoursAuthorId && !in_array($targetUser->id, $commissionUserIds, true)) {
                     $this->createNotification([
                         'tticket_id' => $ticket->id,
                         'sender_id' => $recoursAuthorId,
@@ -319,12 +329,7 @@ class NotificationService
                     continue;
                 }
 
-                // Éviter les doublons: si le membre est aussi employé répondeur pour une des directions du ticket,
-                // ne pas lui envoyer la notification "commission" (il sera notifié via les notifications répondeur).
-                $recipientUser = \App\Models\User::find($member->user_id);
-                if ($recipientUser && $this->isUserEmployeRepondeurForDirections($recipientUser, $ticketDirectionCodes)) {
-                    continue;
-                }
+                // Inversion de logique: on notifie la commission même si le membre est aussi répondeur.
 
                 $role = strtolower(trim($member->role ?? ''));
                 $baseMessage = "Un nouveau recours a été enregistré pour la réclamation \"{$ticket->objet}\".";
@@ -377,14 +382,6 @@ class NotificationService
 
             // Récupérer tous les membres de la commission de recours
             $commissionMembers = TRecCommissionRecours::select('user_id', 'direction')->get();
-            // Récupérer toutes les directions liées au ticket pour identifier les employés répondeurs concernés
-            $ticketDirections = TRecTicketDirection::where('tticket_id', $ticket->id)
-                ->pluck('direction')
-                ->filter()
-                ->map(fn($d) => strtoupper(trim($d)))
-                ->unique()
-                ->values()
-                ->all();
 
             foreach ($commissionMembers as $member) {
                 // Ne pas notifier l'expéditeur lui-même s'il est membre
@@ -392,12 +389,7 @@ class NotificationService
                     continue;
                 }
 
-                // Éviter les doublons: si le membre est aussi employé répondeur pour une des directions du ticket,
-                // ne pas lui envoyer une notification "commission" (il sera notifié via les notifications de traitement).
-                $recipientUser = \App\Models\User::find($member->user_id);
-                if ($recipientUser && $this->isUserEmployeRepondeurForDirections($recipientUser, $ticketDirections)) {
-                    continue;
-                }
+                // Inversion de logique: toujours notifier côté commission même en cas de double rôle.
 
                 $this->createNotification([
                     'tticket_id' => $ticket->id,
