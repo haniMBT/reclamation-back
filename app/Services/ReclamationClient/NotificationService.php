@@ -330,15 +330,55 @@ class NotificationService
     }
 
     /**
-     * Créer des notifications pour la clôture d'un recours (optionnel pour plus tard)
+     * Créer des notifications pour la clôture définitive d'un recours
      *
      * @param TRecTicket $ticket
+     * @param int|null $closedByUserId ID de l'utilisateur ayant clôturé le recours (agent) ou null pour système
      * @return void
      */
-    public function createRecoursClosureNotifications(TRecTicket $ticket): void
+    public function createRecoursClosureNotifications(TRecTicket $ticket, ?int $closedByUserId = null): void
     {
-        // TODO: Implémenter la logique pour la clôture de recours
-        // Cette méthode pourra être utilisée plus tard
+        try {
+            if (!$ticket->relationLoaded('baseTicket')) {
+                $ticket->load('baseTicket');
+            }
+
+            $closerUser = $closedByUserId ? \App\Models\User::find($closedByUserId) : null;
+            $closerName = $closerUser
+                ? trim(($closerUser->Prenom ?? '') . ' ' . ($closerUser->Nom ?? ''))
+                : 'Système';
+
+            // Récupérer tous les membres de la commission de recours
+            $commissionMembers = TRecCommissionRecours::select('user_id', 'direction')->get();
+
+            foreach ($commissionMembers as $member) {
+                // Ne pas notifier l'expéditeur lui-même s'il est membre
+                if ($member->user_id && $closedByUserId && $member->user_id == $closedByUserId) {
+                    continue;
+                }
+
+                $this->createNotification([
+                    'tticket_id' => $ticket->id,
+                    'sender_id' => $closedByUserId,
+                    'id_recepteur' => $member->user_id,
+                    'direction' => $member->direction,
+                    'message' => "Le recours est clôturé définitivement après traitement complet pour la réclamation \"{$ticket->objet}\". Expéditeur : {$closerName}.",
+                    'type' => 'cloture_recours',
+                    'mode' => null,
+                    'meta' => [
+                        'ticket_title' => $ticket->objet,
+                        'sender_name' => $closerName,
+                        'status' => $ticket->status,
+                        'conclusion' => $ticket->conclusion ?? ''
+                    ],
+                    'is_read' => 0
+                ]);
+            }
+
+            Log::info("Notifications de clôture de recours créées pour le ticket {$ticket->id} vers la commission.");
+        } catch (\Exception $e) {
+            Log::error("Erreur lors de la création des notifications de clôture de recours pour le ticket {$ticket->id}: " . $e->getMessage());
+        }
     }
 
     /**

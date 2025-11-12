@@ -1637,6 +1637,9 @@ class TicketController extends Controller
             // Envoyer les notifications de clôture
             $notificationService = new NotificationService();
             $notificationService->createTicketClosureNotifications($ticket, $closedByUserId);
+            if ($ticket->status === 'Recours clôturé') {
+                $notificationService->createRecoursClosureNotifications($ticket, $closedByUserId);
+            }
 
             // Enregistrer les fichiers de conclusion s'ils existent
             if ($request->hasFile('files')) {
