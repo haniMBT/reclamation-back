@@ -362,10 +362,25 @@ class NotificationService
 
             // Récupérer tous les membres de la commission de recours
             $commissionMembers = TRecCommissionRecours::select('user_id', 'direction')->get();
+            // Récupérer toutes les directions liées au ticket pour identifier les employés répondeurs concernés
+            $ticketDirections = TRecTicketDirection::where('tticket_id', $ticket->id)
+                ->pluck('direction')
+                ->filter()
+                ->map(fn($d) => strtoupper(trim($d)))
+                ->unique()
+                ->values()
+                ->all();
 
             foreach ($commissionMembers as $member) {
                 // Ne pas notifier l'expéditeur lui-même s'il est membre
                 if ($member->user_id && $closedByUserId && $member->user_id == $closedByUserId) {
+                    continue;
+                }
+
+                // Éviter les doublons: si le membre est aussi employé répondeur pour une des directions du ticket,
+                // ne pas lui envoyer une notification "commission" (il sera notifié via les notifications de traitement).
+                $recipientUser = \App\Models\User::find($member->user_id);
+                if ($recipientUser && $this->isUserEmployeRepondeurForDirections($recipientUser, $ticketDirections)) {
                     continue;
                 }
 
@@ -574,11 +589,27 @@ class NotificationService
                 ->select('user_id', 'direction', 'prenom', 'nom')
                 ->get();
 
+            // // Récupérer toutes les directions liées au ticket pour identifier les employés répondeurs concernés
+            // $ticketDirections = TRecTicketDirection::where('tticket_id', $ticket->id)
+            //     ->pluck('direction')
+            //     ->filter()
+            //     ->map(fn($d) => strtoupper(trim($d)))
+            //     ->unique()
+            //     ->values()
+            //     ->all();
+
             foreach ($recipients as $recipient) {
                 // Ne pas notifier l'expéditeur lui-même
                 if (!$recipient || !$recipient->user_id || $recipient->user_id == $senderId) {
                     continue;
                 }
+
+                // // Éviter les doublons: si le destinataire est employé répondeur pour une des directions du ticket,
+                // // ne pas lui envoyer de notification commission.
+                // $recipientUser = \App\Models\User::find($recipient->user_id);
+                // if ($recipientUser && $this->isUserEmployeRepondeurForDirections($recipientUser, $ticketDirections)) {
+                //     continue;
+                // }
 
                 $this->createNotification([
                     'tticket_id' => $ticket->id,
@@ -601,6 +632,40 @@ class NotificationService
             Log::info("Notifications créées pour message commission du ticket {$ticket->id} vers membres: " . implode(', ', $recipientUserIds));
         } catch (\Exception $e) {
             Log::error("Erreur lors de la création des notifications de message commission pour le ticket {$ticket->id}: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Vérifie si un utilisateur est employé répondeur pour au moins une des directions du ticket
+     *
+     * @param \App\Models\User $user
+     * @param array $ticketDirections Liste de directions en majuscules
+     * @return bool
+     */
+    private function isUserEmployeRepondeurForDirections($user, array $ticketDirections): bool
+    {
+        try {
+            if (!$user || empty($ticketDirections)) {
+                return false;
+            }
+
+            $userDirection = strtoupper(trim((string) $user->direction));
+            if (!$userDirection || !in_array($userDirection, $ticketDirections, true)) {
+                return false;
+            }
+
+            // Vérifier le privilège employe_repondeur pour cet utilisateur
+            $hasPrivilege = DB::table('p_privileges')
+                ->join('p_profils', 'p_profils.code', '=', 'p_privileges.profil_code')
+                ->where('p_profils.code', $user->privilege)
+                ->where('p_privileges.volet', 'liste_des_reclamations')
+                ->whereRaw('LOWER(p_privileges.role) = ?', [strtolower('employe_repondeur')])
+                ->exists();
+
+            return $hasPrivilege;
+        } catch (\Exception $e) {
+            Log::warning('isUserEmployeRepondeurForDirections check failed: ' . $e->getMessage());
+            return false;
         }
     }
 
