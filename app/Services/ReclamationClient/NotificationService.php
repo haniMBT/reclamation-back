@@ -270,6 +270,14 @@ class NotificationService
 
             // Récupérer toutes les directions associées au ticket
             $ticketDirections = TRecTicketDirection::where('tticket_id', $ticket->id)->get();
+            // Liste des directions en majuscules pour les comparaisons
+            $ticketDirectionCodes = TRecTicketDirection::where('tticket_id', $ticket->id)
+                ->pluck('direction')
+                ->filter()
+                ->map(fn($d) => strtoupper(trim($d)))
+                ->unique()
+                ->values()
+                ->all();
 
             // Préparer les données du client
             $clientName = $ticket->user
@@ -308,6 +316,13 @@ class NotificationService
             foreach ($commission as $member) {
                 // Ne pas notifier l'auteur du recours
                 if (!$member || !$member->user_id || $member->user_id == $recoursAuthorId) {
+                    continue;
+                }
+
+                // Éviter les doublons: si le membre est aussi employé répondeur pour une des directions du ticket,
+                // ne pas lui envoyer la notification "commission" (il sera notifié via les notifications répondeur).
+                $recipientUser = \App\Models\User::find($member->user_id);
+                if ($recipientUser && $this->isUserEmployeRepondeurForDirections($recipientUser, $ticketDirectionCodes)) {
                     continue;
                 }
 
