@@ -27,6 +27,7 @@ class ParametrageController extends Controller
     {
         try {
 
+            $privilege_pcr = Auth::user()->scopePrivileges('parametrage_pcr');
             $privilege = Auth::user()->scopePrivileges('parametrage');
 
             // Récupérer tous les tickets avec leurs relations
@@ -120,6 +121,7 @@ class ParametrageController extends Controller
                 'directions' => $directions,
                 'directions_visibilite' => $directions_visibilite,
                 'privilege' => $privilege,
+                'privilege_pcr' => $privilege_pcr,
                 'users' => $users,
                 'commission_recours' => $commission,
             ];
