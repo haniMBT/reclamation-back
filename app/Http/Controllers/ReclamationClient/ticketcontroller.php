@@ -720,33 +720,28 @@ class TicketController extends Controller
                 'files.*.mimes' => 'Le format du fichier n\'est pas autorisé.',
             ]);
 
-            // Validation manuelle du type_selection
-            if (!$typeSelection || !is_array($typeSelection) || empty($typeSelection)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Erreurs de validation',
-                    'errors' => ['type_selection' => ['Au moins un type doit être sélectionné.']]
-                ], 422);
+            // Normaliser type_selection (facultatif)
+            if (!$typeSelection || !is_array($typeSelection)) {
+                $typeSelection = [];
             }
 
-            // Valider chaque type dans type_selection
+            // Valider chaque type dans type_selection (si fourni)
             foreach ($typeSelection as $index => $typeData) {
-                if (!isset($typeData['libelle']) || empty(trim($typeData['libelle']))) {
+                if (isset($typeData['libelle']) && empty(trim($typeData['libelle']))) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Erreurs de validation',
-                        'errors' => ["type_selection.{$index}.libelle" => ['Le libellé du type est requis.']]
+                        'errors' => ["type_selection.{$index}.libelle" => ['Le libellé du type est requis si fourni.']]
                     ], 422);
                 }
 
-                // Valider les détails si présents
                 if (isset($typeData['details']) && is_array($typeData['details'])) {
                     foreach ($typeData['details'] as $detailIndex => $detailData) {
-                        if (!isset($detailData['libelle']) || empty(trim($detailData['libelle']))) {
+                        if (isset($detailData['libelle']) && empty(trim($detailData['libelle']))) {
                             return response()->json([
                                 'success' => false,
                                 'message' => 'Erreurs de validation',
-                                'errors' => ["type_selection.{$index}.details.{$detailIndex}.libelle" => ['Le libellé du détail est requis.']]
+                                'errors' => ["type_selection.{$index}.details.{$detailIndex}.libelle" => ['Le libellé du détail est requis si fourni.']]
                             ], 422);
                         }
                     }
@@ -774,7 +769,7 @@ class TicketController extends Controller
                 $this->handleTicketFileUploads($request->file('files'), $tticketId);
             }
 
-            // Insertion des types et détails selon le nouveau format
+            // Insertion des types et détails selon le nouveau format (si fourni)
             foreach ($typeSelection as $typeData) {
                 // Créer le type avec le nouveau format
                 $tRecType = TRecType::create([
@@ -1046,13 +1041,9 @@ class TicketController extends Controller
                 'files.*.mimes' => 'Le format du fichier n\'est pas autorisé.',
             ]);
 
-            // Validation manuelle du type_selection
-            if (!$typeSelection || !is_array($typeSelection) || empty($typeSelection)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Erreurs de validation',
-                    'errors' => ['type_selection' => ['Au moins un type doit être sélectionné.']]
-                ], 422);
+            // Normaliser type_selection (facultatif)
+            if (!$typeSelection || !is_array($typeSelection)) {
+                $typeSelection = [];
             }
 
             DB::beginTransaction();
