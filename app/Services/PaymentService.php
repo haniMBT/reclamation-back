@@ -19,7 +19,8 @@ class PaymentService
             'currency' => '012',
             'amount' => $facture->facttc * 100,  // Convertir en centimes
             'language' => 'fr',
-            'orderNumber' => $order->id,
+            // Utiliser un orderNumber unique pour éviter les duplications côté SATIM
+            'orderNumber' => $order->id . time(),
             'userName' => $username,
             'password' => $password,
             'returnUrl' => route('payment.success', ['id' => $facture->id,'user_id' => $user->id,'token' => $order->payment_token]),

@@ -250,7 +250,7 @@ class ProformaController extends Controller
         try {
             $historiques = Historique::where('user_id', Auth::id())
                 ->orderBy('created_at', 'desc')
-                ->paginate(10);
+                ->paginate(100);
 
             return response()->json([
                 'status' => 'success',
