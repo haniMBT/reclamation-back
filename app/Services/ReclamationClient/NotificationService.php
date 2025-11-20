@@ -113,27 +113,7 @@ class NotificationService
      * @param string $direction
      * @return User|null
      */
-    // private function findEmployeRepondeursByDirection(string $direction)
-    // {
-    //     // Chercher un utilisateur appartenant à cette direction
-    //     $user = User::where('direction', $direction)->first();
 
-    //     // Si aucun utilisateur trouvé dans cette direction, retourner null
-    //     if (!$user) {
-    //         return null;
-    //     }
-
-    //     // Vérifier si cet utilisateur a le bon privilège
-    //     $hasPrivilege = DB::table('p_privileges')
-    //         ->join('p_profils', 'p_profils.code', '=', 'p_privileges.profil_code')
-    //         ->where('p_profils.code', $user->privilege)
-    //         ->where('p_privileges.volet', 'liste_des_reclamations')
-    //         ->where('p_privileges.role', 'employe_Répondeur')
-    //         ->exists();
-
-    //     // Retourner l'utilisateur seulement s'il a le bon privilège
-    //     return $hasPrivilege ? $user : null;
-    // }
         private function findEmployeRepondeursByDirection(string $direction)
     {
         return User::where('direction', $direction)
