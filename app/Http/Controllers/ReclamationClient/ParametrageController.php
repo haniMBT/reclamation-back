@@ -78,6 +78,7 @@ class ParametrageController extends Controller
                             'id' => $info->id,
                             'libelle' => $info->libelle,
                             'key_attribut' => $info->key_attirubut, // Note: utilise le nom du champ avec la faute de frappe
+                            'obligatoire' => (bool) ($info->obligatoire ?? false),
                             'type' => $info->type,
                         ];
                     }),
@@ -499,6 +500,7 @@ class ParametrageController extends Controller
                         'id' => $info->id,
                         'libelle' => $info->libelle,
                         'key_attribut' => $info->key_attirubut,
+                        'obligatoire' => (bool) ($info->obligatoire ?? false),
                         'type' => $info->type,
                     ];
                 }),
