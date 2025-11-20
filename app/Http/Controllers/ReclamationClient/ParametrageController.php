@@ -293,6 +293,7 @@ class ParametrageController extends Controller
                 'infos_generales' => 'nullable|array',
                 'infos_generales.*.libelle' => 'required|string',
                 'infos_generales.*.key_attribut' => 'required|boolean',
+                'infos_generales.*.obligatoire' => 'required|boolean',
                 'infos_generales.*.type' => 'nullable|string|in:date,texte,montant,numéro',
             ], [
                 'libelle.required' => 'Le libellé est obligatoire',
@@ -307,6 +308,8 @@ class ParametrageController extends Controller
                 'infos_generales.*.libelle.string' => 'Le libellé de l\'information générale doit être une chaîne de caractères',
                 'infos_generales.*.key_attribut.required' => 'L\'attribut clé est obligatoire',
                 'infos_generales.*.key_attribut.boolean' => 'L\'attribut clé doit être un booléen',
+                'infos_generales.*.obligatoire.required' => 'Le caractère obligatoire est requis',
+                'infos_generales.*.obligatoire.boolean' => 'Le caractère obligatoire doit être un booléen',
                 'infos_generales.*.type.in' => 'Le type de champ doit être parmi: date, texte, montant, numéro',
             ]);
 
@@ -336,6 +339,7 @@ class ParametrageController extends Controller
                             'bticket_id' => $ticket->id,
                             'libelle' => $info['libelle'],
                             'key_attirubut' => $info['key_attribut'],
+                            'obligatoire' => $info['obligatoire'],
                             'type' => $info['type'] ?? null,
                         ]);
                     }
@@ -387,6 +391,7 @@ class ParametrageController extends Controller
                 'infos_generales' => 'nullable|array',
                 'infos_generales.*.libelle' => 'required|string',
                 'infos_generales.*.key_attribut' => 'required|boolean',
+                'infos_generales.*.obligatoire' => 'required|boolean',
                 'infos_generales.*.type' => 'nullable|string|in:date,texte,montant,numéro',
             ], [
                 'libelle.required' => 'Le libellé est obligatoire',
@@ -401,6 +406,8 @@ class ParametrageController extends Controller
                 'infos_generales.*.libelle.string' => 'Le libellé de l\'information générale doit être une chaîne de caractères',
                 'infos_generales.*.key_attribut.required' => 'L\'attribut clé est obligatoire',
                 'infos_generales.*.key_attribut.boolean' => 'L\'attribut clé doit être un booléen',
+                'infos_generales.*.obligatoire.required' => 'Le caractère obligatoire est requis',
+                'infos_generales.*.obligatoire.boolean' => 'Le caractère obligatoire doit être un booléen',
                 'infos_generales.*.type.in' => 'Le type de champ doit être parmi: date, texte, montant, numéro',
             ]);
 
@@ -432,6 +439,7 @@ class ParametrageController extends Controller
                             'bticket_id' => $ticket->id,
                             'libelle' => $info['libelle'],
                             'key_attirubut' => $info['key_attribut'],
+                            'obligatoire' => $info['obligatoire'],
                             'type' => $info['type'] ?? null,
                         ]);
                     }

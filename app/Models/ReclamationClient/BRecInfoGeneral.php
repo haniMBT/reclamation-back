@@ -22,6 +22,7 @@ class BRecInfoGeneral extends Model
         'bticket_id',
         'libelle',
         'key_attirubut',
+        'obligatoire',
         'type',
     ];
 
@@ -30,6 +31,7 @@ class BRecInfoGeneral extends Model
      */
     protected $casts = [
         'key_attirubut' => 'boolean',
+        'obligatoire' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
