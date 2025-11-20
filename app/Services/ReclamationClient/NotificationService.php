@@ -40,12 +40,11 @@ class NotificationService
             // Récupérer le libellé du ticket de base
             $libelle = $ticket->baseTicket ? $ticket->baseTicket->libelle : $ticket->objet;
 
-            // Pour chaque direction, trouver un utilisateur avec le rôle employe_Répondeur
+            // Pour chaque direction, trouver les utilisateurs avec le rôle employe_repondeur
             foreach ($ticketDirections as $ticketDirection) {
-                $targetUser = $this->findEmployeRepondeursByDirection($ticketDirection->direction);
+                $targetUsers = $this->findEmployeRepondeursByDirection($ticketDirection->direction);
 
-                // Créer une notification seulement si un utilisateur valide est trouvé
-                if ($targetUser) {
+                foreach ($targetUsers as $targetUser) {
                     // Déterminer le message selon type_orientation et statut_direction
                     $message = $this->generateValidationMessage(
                         $clientName,
@@ -124,7 +123,7 @@ class NotificationService
                     ->where('p_privileges.volet', 'liste_des_reclamations')
                     ->whereRaw('LOWER(p_privileges.role) = ?', [strtolower('employe_repondeur')]);
             })
-            ->first(); // null si aucun
+            ->get();
     }
 
     /**
@@ -191,41 +190,43 @@ class NotificationService
             // Récupérer les membres de la commission pour filtrer les répondeurs en double rôle sur clôture de recours
             $commissionUserIds = TRecCommissionRecours::pluck('user_id')->filter()->unique()->values()->all();
 
-            // Pour chaque direction, trouver un utilisateur avec le rôle employe_Répondeur
+            // Pour chaque direction, trouver les utilisateurs avec le rôle employe_repondeur
             foreach ($ticketDirections as $ticketDirection) {
-                $targetUser = $this->findEmployeRepondeursByDirection($ticketDirection->direction);
+                $targetUsers = $this->findEmployeRepondeursByDirection($ticketDirection->direction);
 
-                // Créer une notification seulement si un utilisateur valide est trouvé
-                // et s'il n'est pas celui qui a effectué la clôture
-                if ($targetUser && $targetUser->id != $closedByUserId) {
-                    // Adapter le message selon le type de clôture
-                    $isRecoursClotured = $ticket->status === 'Recours clôturé';
-                    // Si recours clôturé et l'utilisateur est aussi membre commission, on ne notifie pas en tant que répondeur
-                    if ($isRecoursClotured && in_array($targetUser->id, $commissionUserIds, true)) {
-                        continue;
+                foreach ($targetUsers as $targetUser) {
+                    // Créer une notification seulement si un utilisateur valide est trouvé
+                    // et s'il n'est pas celui qui a effectué la clôture
+                    if ($targetUser && $targetUser->id != $closedByUserId) {
+                        // Adapter le message selon le type de clôture
+                        $isRecoursClotured = $ticket->status === 'Recours clôturé';
+                        // Si recours clôturé et l'utilisateur est aussi membre commission, on ne notifie pas en tant que répondeur
+                        if ($isRecoursClotured && in_array($targetUser->id, $commissionUserIds, true)) {
+                            continue;
+                        }
+                        $messageText = $isRecoursClotured
+                            ? "Le recours de {$clientName} sur la réclamation \"{$ticket->objet}\" a été clôturé."
+                            : "La réclamation de {$clientName} \"{$ticket->objet}\" a été clôturée.";
+
+                        $notificationType = $isRecoursClotured ? 'cloture_recours' : 'cloture_ticket';
+
+                        $this->createNotification([
+                            'tticket_id' => $ticket->id,
+                            'sender_id' => $closedByUserId,
+                            'id_recepteur' => $targetUser->id,
+                            'direction' => $ticketDirection->direction,
+                            'message' => $messageText,
+                            'type' => $notificationType,
+                            'mode' => $ticketDirection->statut_direction,
+                            'meta' => [
+                                'ticket_title' => $ticket->objet,
+                                'created_by' => $clientName,
+                                'status' => $ticket->status,
+                                'conclusion' => $ticket->conclusion ?? ''
+                            ],
+                            'is_read' => 0
+                        ]);
                     }
-                    $messageText = $isRecoursClotured
-                        ? "Le recours de {$clientName} sur la réclamation \"{$ticket->objet}\" a été clôturé."
-                        : "La réclamation de {$clientName} \"{$ticket->objet}\" a été clôturée.";
-
-                    $notificationType = $isRecoursClotured ? 'cloture_recours' : 'cloture_ticket';
-
-                    $this->createNotification([
-                        'tticket_id' => $ticket->id,
-                        'sender_id' => $closedByUserId,
-                        'id_recepteur' => $targetUser->id,
-                        'direction' => $ticketDirection->direction,
-                        'message' => $messageText,
-                        'type' => $notificationType,
-                        'mode' => $ticketDirection->statut_direction,
-                        'meta' => [
-                            'ticket_title' => $ticket->objet,
-                            'created_by' => $clientName,
-                            'status' => $ticket->status,
-                            'conclusion' => $ticket->conclusion ?? ''
-                        ],
-                        'is_read' => 0
-                    ]);
                 }
             }
 
@@ -275,29 +276,31 @@ class NotificationService
             // Récupérer les membres de la commission (pour éviter la double notification côté répondeur)
             $commissionUserIds = TRecCommissionRecours::pluck('user_id')->filter()->unique()->values()->all();
 
-            // Pour chaque direction, trouver un utilisateur avec le rôle employe_Répondeur
+            // Pour chaque direction, trouver les utilisateurs avec le rôle employe_repondeur
             foreach ($ticketDirections as $ticketDirection) {
-                $targetUser = $this->findEmployeRepondeursByDirection($ticketDirection->direction);
+                $targetUsers = $this->findEmployeRepondeursByDirection($ticketDirection->direction);
 
-                // Créer une notification seulement si un utilisateur valide est trouvé
-                // et que ce n'est pas l'auteur du recours. Si l'utilisateur est aussi membre
-                // de la commission, ne pas le notifier côté répondeur (on privilégie la notification commission).
-                if ($targetUser && $targetUser->id != $recoursAuthorId && !in_array($targetUser->id, $commissionUserIds, true)) {
-                    $this->createNotification([
-                        'tticket_id' => $ticket->id,
-                        'sender_id' => $recoursAuthorId,
-                        'id_recepteur' => $targetUser->id,
-                        'direction' => $ticketDirection->direction,
-                        'message' => "Le client {$clientName} a effectué un recours sur la réclamation \"{$ticket->objet}\" ticket \"{$libelle}\".",
-                        'type' => 'creation_recours',
-                        'mode' => $ticketDirection->statut_direction,
-                        'meta' => [
-                            'ticket_title' => $ticket->objet,
-                            'client_name' => $clientName,
-                            'status' => $ticket->status
-                        ],
-                        'is_read' => 0
-                    ]);
+                foreach ($targetUsers as $targetUser) {
+                    // Créer une notification seulement si un utilisateur valide est trouvé
+                    // et que ce n'est pas l'auteur du recours. Si l'utilisateur est aussi membre
+                    // de la commission, ne pas le notifier côté répondeur (on privilégie la notification commission).
+                    if ($targetUser && $targetUser->id != $recoursAuthorId && !in_array($targetUser->id, $commissionUserIds, true)) {
+                        $this->createNotification([
+                            'tticket_id' => $ticket->id,
+                            'sender_id' => $recoursAuthorId,
+                            'id_recepteur' => $targetUser->id,
+                            'direction' => $ticketDirection->direction,
+                            'message' => "Le client {$clientName} a effectué un recours sur la réclamation \"{$ticket->objet}\" ticket \"{$libelle}\".",
+                            'type' => 'creation_recours',
+                            'mode' => $ticketDirection->statut_direction,
+                            'meta' => [
+                                'ticket_title' => $ticket->objet,
+                                'client_name' => $clientName,
+                                'status' => $ticket->status
+                            ],
+                            'is_read' => 0
+                        ]);
+                    }
                 }
             }
 
@@ -427,28 +430,30 @@ class NotificationService
                 // Récupérer toutes les directions associées au ticket
                 $ticketDirections = TRecTicketDirection::where('tticket_id', $ticket->id)->get();
 
-                // Pour chaque direction, trouver un utilisateur avec le rôle employe_Répondeur
+                // Pour chaque direction, trouver les utilisateurs avec le rôle employe_repondeur
                 foreach ($ticketDirections as $ticketDirection) {
-                    $targetUser = $this->findEmployeRepondeursByDirection($ticketDirection->direction);
+                    $targetUsers = $this->findEmployeRepondeursByDirection($ticketDirection->direction);
 
-                    // Créer une notification seulement si un utilisateur valide est trouvé
-                    // et que ce n'est pas l'expéditeur (ne devrait pas arriver car client != employé)
-                    if ($targetUser && $targetUser->id != $senderId) {
-                        $this->createNotification([
-                            'tticket_id' => $ticket->id,
-                            'sender_id' => $senderId,
-                            'id_recepteur' => $targetUser->id,
-                            'direction' => $ticketDirection->direction,
-                            'message' => "Le client {$clientName} a répondu à la réclamation \"{$ticket->objet}\" ticket \"{$libelle}\".",
-                            'type' => 'reponse_client',
-                            'mode' => $ticketDirection->statut_direction,
-                            'meta' => [
-                                'ticket_title' => $ticket->objet,
-                                'client_name' => $clientName,
-                                'status' => $ticket->status
-                            ],
-                            'is_read' => 0
-                        ]);
+                    foreach ($targetUsers as $targetUser) {
+                        // Créer une notification seulement si un utilisateur valide est trouvé
+                        // et que ce n'est pas l'expéditeur (ne devrait pas arriver car client != employé)
+                        if ($targetUser && $targetUser->id != $senderId) {
+                            $this->createNotification([
+                                'tticket_id' => $ticket->id,
+                                'sender_id' => $senderId,
+                                'id_recepteur' => $targetUser->id,
+                                'direction' => $ticketDirection->direction,
+                                'message' => "Le client {$clientName} a répondu à la réclamation \"{$ticket->objet}\" ticket \"{$libelle}\".",
+                                'type' => 'reponse_client',
+                                'mode' => $ticketDirection->statut_direction,
+                                'meta' => [
+                                    'ticket_title' => $ticket->objet,
+                                    'client_name' => $clientName,
+                                    'status' => $ticket->status
+                                ],
+                                'is_read' => 0
+                            ]);
+                        }
                     }
                 }
 
@@ -515,11 +520,10 @@ class NotificationService
             // Pour chaque direction destinataire
             foreach ($ticketDirectionsDestinaires as $ticketDirection) {
                 // Trouver les utilisateurs employés répondeurs de cette direction
-                $targetUser = $this->findEmployeRepondeursByDirection($ticketDirection->direction);
+                $targetUsers = $this->findEmployeRepondeursByDirection($ticketDirection->direction);
 
                 // Créer une notification pour chaque utilisateur trouvé
-                // foreach ($targetUsers as $targetUser) {
-
+                foreach ($targetUsers as $targetUser) {
                     // Ne pas notifier l'expéditeur lui-même
                     if ($targetUser && $targetUser->id != $senderId) {
                         $this->createNotification([
@@ -539,7 +543,7 @@ class NotificationService
                             'is_read' => 0
                         ]);
                     }
-                // }
+                }
             }
 
             Log::info("Notifications créées pour le message du ticket {$ticket->id} vers les directions: " . implode(', ', $directionsDestinaires));
@@ -680,32 +684,34 @@ class NotificationService
             $libelle = $ticket->baseTicket ? $ticket->baseTicket->libelle : $ticket->objet;
 
             // Trouver les utilisateurs employés répondeurs de cette direction
-            $targetUser = $this->findEmployeRepondeursByDirection($direction);
+            $targetUsers = $this->findEmployeRepondeursByDirection($direction);
 
             // Créer une notification seulement si un utilisateur valide est trouvé
             // et que ce n'est pas l'utilisateur pilot lui-même
-            if ($targetUser && $targetUser->id != $pilotUserId) {
-                // Générer le message selon le statut de la direction
-                $message = $this->generateDirectionAddedMessage($ticket->objet, $libelle, $statutDirection);
+            foreach ($targetUsers as $targetUser) {
+                if ($targetUser && $targetUser->id != $pilotUserId) {
+                    // Générer le message selon le statut de la direction
+                    $message = $this->generateDirectionAddedMessage($ticket->objet, $libelle, $statutDirection);
 
-                $this->createNotification([
-                    'tticket_id' => $ticket->id,
-                    'sender_id' => $pilotUserId,
-                    'id_recepteur' => $targetUser->id,
-                    'direction' => $direction,
-                    'message' => $message,
-                    'type' => 'ajout_direction',
-                    'mode' => $statutDirection,
-                    'meta' => [
-                        'ticket_title' => $ticket->objet,
-                        'libelle' => $libelle,
-                        'statut_direction' => $statutDirection,
-                        'direction_ajoutee' => $direction
-                    ],
-                    'is_read' => 0
-                ]);
+                    $this->createNotification([
+                        'tticket_id' => $ticket->id,
+                        'sender_id' => $pilotUserId,
+                        'id_recepteur' => $targetUser->id,
+                        'direction' => $direction,
+                        'message' => $message,
+                        'type' => 'ajout_direction',
+                        'mode' => $statutDirection,
+                        'meta' => [
+                            'ticket_title' => $ticket->objet,
+                            'libelle' => $libelle,
+                            'statut_direction' => $statutDirection,
+                            'direction_ajoutee' => $direction
+                        ],
+                        'is_read' => 0
+                    ]);
 
-                Log::info("Notification d'ajout de direction créée pour le ticket {$ticket->id}, direction: {$direction}");
+                    Log::info("Notification d'ajout de direction créée pour le ticket {$ticket->id}, direction: {$direction}");
+                }
             }
 
         } catch (\Exception $e) {
@@ -756,30 +762,31 @@ class NotificationService
             $libelle = $ticket->baseTicket ? $ticket->baseTicket->libelle : $ticket->objet;
 
             // Trouver les utilisateurs employés répondeurs de cette direction
-            $targetUser = $this->findEmployeRepondeursByDirection($direction);
+            $targetUsers = $this->findEmployeRepondeursByDirection($direction);
 
-            // Créer une notification seulement si un utilisateur valide est trouvé
-            // et que ce n'est pas l'utilisateur pilot lui-même
-            if ($targetUser && $targetUser->id != $pilotUserId) {
-                $message = "Vous n'êtes plus collaborateur sur la réclamation {$ticket->objet} ticket {$libelle}.";
+            // Créer une notification pour chaque utilisateur trouvé, sauf l'utilisateur pilot lui-même
+            foreach ($targetUsers as $targetUser) {
+                if ($targetUser && $targetUser->id != $pilotUserId) {
+                    $message = "Vous n'êtes plus collaborateur sur la réclamation {$ticket->objet} ticket {$libelle}.";
 
-                $this->createNotification([
-                    'tticket_id' => $ticket->id,
-                    'sender_id' => $pilotUserId,
-                    'id_recepteur' => $targetUser->id,
-                    'direction' => $direction,
-                    'message' => $message,
-                    'type' => 'suppression_direction',
-                    'mode' => null, // Pas de mode spécifique pour la suppression
-                    'meta' => [
-                        'ticket_title' => $ticket->objet,
-                        'libelle' => $libelle,
-                        'direction_supprimee' => $direction
-                    ],
-                    'is_read' => 0
-                ]);
+                    $this->createNotification([
+                        'tticket_id' => $ticket->id,
+                        'sender_id' => $pilotUserId,
+                        'id_recepteur' => $targetUser->id,
+                        'direction' => $direction,
+                        'message' => $message,
+                        'type' => 'suppression_direction',
+                        'mode' => null, // Pas de mode spécifique pour la suppression
+                        'meta' => [
+                            'ticket_title' => $ticket->objet,
+                            'libelle' => $libelle,
+                            'direction_supprimee' => $direction
+                        ],
+                        'is_read' => 0
+                    ]);
 
-                Log::info("Notification de suppression de direction créée pour le ticket {$ticket->id}, direction: {$direction}");
+                    Log::info("Notification de suppression de direction créée pour le ticket {$ticket->id}, direction: {$direction}");
+                }
             }
 
         } catch (\Exception $e) {
