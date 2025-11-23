@@ -5,6 +5,7 @@ namespace App\Http\Controllers\ReclamationClient;
 use App\Http\Controllers\Controller;
 use App\Models\Direction;
 use App\Models\ReclamationClient\BRecTickets;
+use App\Models\ReclamationClient\BRecDefaultDirection;
 use App\Models\ReclamationClient\TRecTicket;
 use App\Models\ReclamationClient\BRecInfoGeneral;
 use App\Models\ReclamationClient\TRecCommissionRecours;
@@ -620,6 +621,137 @@ class ParametrageController extends Controller
             return response()->json([
                 'error' => 'Erreur lors de la suppression',
                 'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Lister toutes les directions automatiques configurées
+     */
+    public function defaultDirectionsIndex(Request $request): JsonResponse
+    {
+        try {
+            $privilege = Auth::user()->scopePrivileges('parametrage');
+
+            $query = BRecDefaultDirection::with(['ticket:id,libelle,direction']);
+
+            // Respecter la visibilité: P/L -> filtrer sur la direction de l'utilisateur via le ticket associé
+            if (in_array($privilege->visibilite, ['P', 'L'])) {
+                $userDirection = Auth::user()->direction;
+                $query->whereHas('ticket', function ($q) use ($userDirection) {
+                    $q->where('direction', $userDirection);
+                });
+            }
+
+            $items = $query->orderBy('id', 'desc')->get()->map(function ($d) {
+                return [
+                    'id' => $d->id,
+                    'direction' => $d->direction,
+                    'statut_direction' => $d->statut_direction,
+                    'bticket_id' => $d->bticket_id,
+                    'bticket_libelle' => optional($d->ticket)->libelle,
+                    'ticket_direction' => optional($d->ticket)->direction,
+                    'created_at' => $d->created_at,
+                    'updated_at' => $d->updated_at,
+                ];
+            });
+
+            // Options pour les selects côté UI
+            $tickets = BRecTickets::select('id', 'libelle', 'direction')
+                ->when(in_array($privilege->visibilite, ['P', 'L']), function ($q) {
+                    $q->where('direction', Auth::user()->direction);
+                })
+                ->orderBy('libelle')
+                ->get();
+
+            $directions = Direction::groupBy('DIRECTION')->select('DIRECTION')
+                ->when(in_array($privilege->visibilite, ['P', 'L']), function ($q) {
+                    $q->where('direction', Auth::user()->direction);
+                })
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $items,
+                'tickets' => $tickets,
+                'directions' => $directions,
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors du chargement des directions automatiques',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Créer une nouvelle direction automatique
+     */
+    public function defaultDirectionsStore(Request $request): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'direction' => 'required|string|exists:direction,DIRECTION',
+                'statut_direction' => 'required|string|in:consultation,traitement',
+                'bticket_id' => 'required|integer|exists:b_rec_tickets,id',
+            ], [
+                'direction.required' => 'La direction est obligatoire',
+                'direction.exists' => 'La direction sélectionnée n\'existe pas',
+                'statut_direction.required' => 'Le statut est obligatoire',
+                'statut_direction.in' => 'Le statut doit être consultation ou traitement',
+                'bticket_id.required' => 'Le libellé du ticket est obligatoire',
+                'bticket_id.exists' => 'Le ticket sélectionné n\'existe pas',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Données invalides',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            // Empêcher les doublons exacts
+            $exists = BRecDefaultDirection::where('bticket_id', $request->bticket_id)
+                ->where('direction', $request->direction)
+                ->where('statut_direction', $request->statut_direction)
+                ->exists();
+
+            if ($exists) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cette direction automatique existe déjà pour ce ticket et ce statut.',
+                ], 409);
+            }
+
+            $item = BRecDefaultDirection::create([
+                'bticket_id' => $request->bticket_id,
+                'direction' => $request->direction,
+                'statut_direction' => $request->statut_direction,
+            ]);
+
+            $item->load('ticket');
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Direction automatique ajoutée',
+                'data' => [
+                    'id' => $item->id,
+                    'direction' => $item->direction,
+                    'statut_direction' => $item->statut_direction,
+                    'bticket_id' => $item->bticket_id,
+                    'bticket_libelle' => optional($item->ticket)->libelle,
+                    'ticket_direction' => optional($item->ticket)->direction,
+                    'created_at' => $item->created_at,
+                    'updated_at' => $item->updated_at,
+                ]
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l\'ajout de la direction automatique',
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
