@@ -715,10 +715,9 @@ class ParametrageController extends Controller
                 ], 422);
             }
 
-            // Empêcher les doublons exacts
+            // Empêcher les doublons sur (direction, bticket_id nullable) — ignore le statut
             $existsQuery = BRecDefaultDirection::query()
-                ->where('direction', $request->direction)
-                ->where('statut_direction', $request->statut_direction);
+                ->where('direction', $request->direction);
 
             if (empty($request->bticket_id)) {
                 $existsQuery->whereNull('bticket_id');
@@ -731,7 +730,7 @@ class ParametrageController extends Controller
             if ($exists) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Cette direction automatique existe déjà pour ce ticket et ce statut.',
+                    'message' => 'Cette direction automatique existe déjà pour ce libellé de ticket (ou global).',
                 ], 409);
             }
 
