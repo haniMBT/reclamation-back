@@ -45,8 +45,9 @@ Route::middleware(['auth:sanctum', 'check.token.expiration'])->group(function ()
     // Ajout de la route pour le basculement d'activation
     Route::patch('rec/parametrage/{id}/toggle', [ParametrageController::class, 'toggleActive'])->name('parametrage.toggle');
     // Routes pour les directions par défaut (auto)
-    Route::get('rec/default-directions', [ParametrageController::class, 'defaultDirectionsIndex'])->name('parametrage.defaultDirections.index');
-    Route::post('rec/default-directions', [ParametrageController::class, 'defaultDirectionsStore'])->name('parametrage.defaultDirections.store');
+Route::get('rec/default-directions', [ParametrageController::class, 'defaultDirectionsIndex'])->name('parametrage.defaultDirections.index');
+Route::post('rec/default-directions', [ParametrageController::class, 'defaultDirectionsStore'])->name('parametrage.defaultDirections.store');
+Route::delete('rec/default-directions/{id}', [ParametrageController::class, 'defaultDirectionsDestroy'])->name('parametrage.defaultDirections.destroy');
     Route::get('rec/tickets', [TicketController::class, 'index'])->name('tickets.index');
     Route::get('rec/tickets/files/{fileId}/download', [TicketController::class, 'downloadFile'])->name('tickets.files.download');
     Route::get('rec/tickets/indexAll', [TicketController::class, 'indexAll'])->name('tickets.indexAll');

@@ -764,4 +764,48 @@ class ParametrageController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Supprimer une direction automatique
+     */
+    public function defaultDirectionsDestroy(int $id): JsonResponse
+    {
+        try {
+            $privilege = Auth::user()->scopePrivileges('parametrage');
+
+            $item = BRecDefaultDirection::with('ticket')->find($id);
+            if (!$item) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Direction automatique introuvable',
+                ], 404);
+            }
+
+            // Visibilité: si P/L, ne permettre la suppression que si ticket.direction = user.direction ou bticket_id NULL
+            if (in_array($privilege->visibilite, ['P', 'L'])) {
+                $userDirection = Auth::user()->direction;
+                $ticketDirection = optional($item->ticket)->direction;
+                if (!is_null($ticketDirection) && $ticketDirection !== $userDirection) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Suppression non autorisée pour cette direction",
+                    ], 403);
+                }
+            }
+
+            $item->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Direction automatique supprimée',
+                'data' => [ 'deleted_id' => $id ]
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la suppression de la direction automatique',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
 }
