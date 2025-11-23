@@ -52,4 +52,12 @@ class BRecTickets extends Model
     {
         return $this->hasMany(BRecInfoGeneral::class, 'bticket_id');
     }
+
+    /**
+     * Relation : Un ticket peut avoir plusieurs directions par défaut.
+     */
+    public function defaultDirections(): HasMany
+    {
+        return $this->hasMany(BRecDefaultDirection::class, 'bticket_id');
+    }
 }

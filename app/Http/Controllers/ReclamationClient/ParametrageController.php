@@ -33,7 +33,8 @@ class ParametrageController extends Controller
             // Récupérer tous les tickets avec leurs relations
             $tickets = BRecTickets::with([
                 'infosGenerales',
-                'types.details'
+                'types.details',
+                'defaultDirections'
             ])
             ->when(in_array($privilege->visibilite, ['P', 'L']), function ($query) {
                 $query->where('direction', Auth::user()->direction);
@@ -100,6 +101,15 @@ class ParametrageController extends Controller
                                     'updated_at' => $detail->updated_at,
                                 ];
                             })
+                        ];
+                    }),
+                    'default_directions' => $ticket->defaultDirections->map(function ($d) {
+                        return [
+                            'id' => $d->id,
+                            'direction' => $d->direction,
+                            'statut_direction' => $d->statut_direction,
+                            'created_at' => $d->created_at,
+                            'updated_at' => $d->updated_at,
                         ];
                     })
                 ];
@@ -475,7 +485,8 @@ class ParametrageController extends Controller
             // Récupérer le ticket avec ses relations
             $ticket = BRecTickets::with([
                 'infosGenerales',
-                'types.details'
+                'types.details',
+                'defaultDirections'
             ])->find($id);
 
             if (!$ticket) {
@@ -522,6 +533,16 @@ class ParametrageController extends Controller
                                 'updated_at' => $detail->updated_at,
                             ];
                         })
+                    ];
+                })
+                ,
+                'default_directions' => $ticket->defaultDirections->map(function ($d) {
+                    return [
+                        'id' => $d->id,
+                        'direction' => $d->direction,
+                        'statut_direction' => $d->statut_direction,
+                        'created_at' => $d->created_at,
+                        'updated_at' => $d->updated_at,
                     ];
                 })
             ];

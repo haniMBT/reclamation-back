@@ -15,6 +15,7 @@ use App\Models\ReclamationClient\TRecTicketFile;
 use App\Models\ReclamationClient\TRecInfoGeneral;
 use Illuminate\Support\Facades\Auth;
 use App\Models\ReclamationClient\TRecTicketDirection;
+use App\Models\ReclamationClient\BRecDefaultDirection;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -1320,14 +1321,31 @@ class TicketController extends Controller
                 ], 400);
             }
 
-            // 1. direction CAB par defaut
-            TRecTicketDirection::create([
-                'tticket_id' => $ticketId,
-                'direction' => 'CAB',
-                'statut_direction' => 'traitement',
-                'source_orientation' => $bticket->libelle,
-                'type_orientation' => 'default'
-            ]);
+            // 0. Directions par défaut paramétrées pour le ticket de base
+            $defaultDirections = BRecDefaultDirection::where('bticket_id', $ticket->bticket_id)->get();
+            foreach ($defaultDirections as $defDir) {
+                TRecTicketDirection::create([
+                    'tticket_id' => $ticketId,
+                    'direction' => $defDir->direction,
+                    'statut_direction' => $defDir->statut_direction ?? 'traitement',
+                    'source_orientation' => $bticket->libelle,
+                    'type_orientation' => 'default'
+                ]);
+            }
+
+            // 1. direction CAB par defaut (fallback si non paramétré)
+            // $hasCab = $defaultDirections->contains(function ($d) {
+            //     return strtoupper($d->direction) === 'CAB';
+            // });
+            // if (!$hasCab) {
+            //     TRecTicketDirection::create([
+            //         'tticket_id' => $ticketId,
+            //         'direction' => 'CAB',
+            //         'statut_direction' => 'traitement',
+            //         'source_orientation' => $bticket->libelle,
+            //         'type_orientation' => 'default'
+            //     ]);
+            // }
 
             // 1. Récupérer la direction du ticket et l'insérer dans t_rec_ticket_direction
             TRecTicketDirection::create([
