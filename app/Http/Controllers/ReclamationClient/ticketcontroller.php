@@ -1321,32 +1321,6 @@ class TicketController extends Controller
                 ], 400);
             }
 
-            // 0. Directions par défaut paramétrées pour le ticket de base
-            $defaultDirections = BRecDefaultDirection::where('bticket_id', $ticket->bticket_id)->get();
-            foreach ($defaultDirections as $defDir) {
-                TRecTicketDirection::create([
-                    'tticket_id' => $ticketId,
-                    'direction' => $defDir->direction,
-                    'statut_direction' => $defDir->statut_direction ?? 'traitement',
-                    'source_orientation' => $bticket->libelle,
-                    'type_orientation' => 'default'
-                ]);
-            }
-
-            // 1. direction CAB par defaut (fallback si non paramétré)
-            // $hasCab = $defaultDirections->contains(function ($d) {
-            //     return strtoupper($d->direction) === 'CAB';
-            // });
-            // if (!$hasCab) {
-            //     TRecTicketDirection::create([
-            //         'tticket_id' => $ticketId,
-            //         'direction' => 'CAB',
-            //         'statut_direction' => 'traitement',
-            //         'source_orientation' => $bticket->libelle,
-            //         'type_orientation' => 'default'
-            //     ]);
-            // }
-
             // 1. Récupérer la direction du ticket et l'insérer dans t_rec_ticket_direction
             TRecTicketDirection::create([
                 'tticket_id' => $ticketId,
@@ -1394,6 +1368,27 @@ class TicketController extends Controller
                         }
                     }
                 }
+            }
+
+              // 0. Directions par défaut paramétrées pour le ticket de base
+            $existingDirections = TRecTicketDirection::where('tticket_id', $ticketId)
+                ->pluck('direction');
+
+            $defaultDirections = BRecDefaultDirection::where(function ($q) use ($ticket) {
+                    $q->where('bticket_id', $ticket->bticket_id)
+                    ->orWhereNull('bticket_id');
+                })
+                ->whereNotIn('direction', $existingDirections)
+                ->get();
+
+            foreach ($defaultDirections as $defDir) {
+                TRecTicketDirection::create([
+                    'tticket_id' => $ticketId,
+                    'direction' => $defDir->direction,
+                    'statut_direction' => $defDir->statut_direction ?? 'traitement',
+                    'source_orientation' => $bticket->libelle,
+                    'type_orientation' => 'default'
+                ]);
             }
 
             // 4. Mettre à jour le champ is_creator_validated à 1, le statut à 'En attente' et enregistrer la date de validation
