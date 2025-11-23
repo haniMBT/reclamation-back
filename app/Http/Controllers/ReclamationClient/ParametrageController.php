@@ -636,10 +636,14 @@ class ParametrageController extends Controller
             $query = BRecDefaultDirection::with(['ticket:id,libelle,direction']);
 
             // Respecter la visibilité: P/L -> filtrer sur la direction de l'utilisateur via le ticket associé
+            // Inclure également les entrées globales (bticket_id NULL)
             if (in_array($privilege->visibilite, ['P', 'L'])) {
                 $userDirection = Auth::user()->direction;
-                $query->whereHas('ticket', function ($q) use ($userDirection) {
-                    $q->where('direction', $userDirection);
+                $query->where(function ($q) use ($userDirection) {
+                    $q->whereHas('ticket', function ($qq) use ($userDirection) {
+                        $qq->where('direction', $userDirection);
+                    })
+                    ->orWhereNull('bticket_id');
                 });
             }
 
@@ -694,13 +698,12 @@ class ParametrageController extends Controller
             $validator = Validator::make($request->all(), [
                 'direction' => 'required|string|exists:direction,DIRECTION',
                 'statut_direction' => 'required|string|in:consultation,traitement',
-                'bticket_id' => 'required|integer|exists:b_rec_tickets,id',
+                'bticket_id' => 'nullable|integer|exists:b_rec_tickets,id',
             ], [
                 'direction.required' => 'La direction est obligatoire',
                 'direction.exists' => 'La direction sélectionnée n\'existe pas',
                 'statut_direction.required' => 'Le statut est obligatoire',
                 'statut_direction.in' => 'Le statut doit être consultation ou traitement',
-                'bticket_id.required' => 'Le libellé du ticket est obligatoire',
                 'bticket_id.exists' => 'Le ticket sélectionné n\'existe pas',
             ]);
 
@@ -713,10 +716,17 @@ class ParametrageController extends Controller
             }
 
             // Empêcher les doublons exacts
-            $exists = BRecDefaultDirection::where('bticket_id', $request->bticket_id)
+            $existsQuery = BRecDefaultDirection::query()
                 ->where('direction', $request->direction)
-                ->where('statut_direction', $request->statut_direction)
-                ->exists();
+                ->where('statut_direction', $request->statut_direction);
+
+            if (empty($request->bticket_id)) {
+                $existsQuery->whereNull('bticket_id');
+            } else {
+                $existsQuery->where('bticket_id', $request->bticket_id);
+            }
+
+            $exists = $existsQuery->exists();
 
             if ($exists) {
                 return response()->json([
