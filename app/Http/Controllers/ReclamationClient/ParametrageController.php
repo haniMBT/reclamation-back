@@ -265,12 +265,12 @@ class ParametrageController extends Controller
             return DB::transaction(function () use ($request, $ticket) {
                 $newState = (bool) $request->is_active;
 
-                if ($newState === true) {
-                    // Désactiver tous les autres tickets de la même direction
-                    BRecTickets::where('direction', $ticket->direction)
-                        ->where('id', '!=', $ticket->id)
-                        ->update(['is_active' => false]);
-                }
+                // if ($newState === true) {
+                //     // Désactiver tous les autres tickets de la même direction
+                //     BRecTickets::where('direction', $ticket->direction)
+                //         ->where('id', '!=', $ticket->id)
+                //         ->update(['is_active' => false]);
+                // }
                 // Mettre à jour l'état du ticket courant
                 $ticket->update(['is_active' => $newState]);
 
