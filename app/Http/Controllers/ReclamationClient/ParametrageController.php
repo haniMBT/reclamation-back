@@ -8,6 +8,7 @@ use App\Models\ReclamationClient\BRecTickets;
 use App\Models\ReclamationClient\BRecDefaultDirection;
 use App\Models\ReclamationClient\TRecTicket;
 use App\Models\ReclamationClient\BRecInfoGeneral;
+use App\Models\ReclamationClient\BRecTicketFile;
 use App\Models\ReclamationClient\TRecCommissionRecours;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -35,7 +36,8 @@ class ParametrageController extends Controller
             $tickets = BRecTickets::with([
                 'infosGenerales',
                 'types.details',
-                'defaultDirections'
+                'defaultDirections',
+                'filesDemandes'
             ])
             ->when(in_array($privilege->visibilite, ['P', 'L']), function ($query) {
                 $query->where('direction', Auth::user()->direction);
@@ -102,6 +104,14 @@ class ParametrageController extends Controller
                                     'updated_at' => $detail->updated_at,
                                 ];
                             })
+                        ];
+                    }),
+                    'files_demandes' => $ticket->filesDemandes->map(function ($file) {
+                        return [
+                            'id' => $file->id,
+                            'libelle' => $file->libelle,
+                            'obligatoire' => (bool) ($file->obligatoire ?? false),
+                            'format' => $file->format_fichier,
                         ];
                     }),
                     'default_directions' => $ticket->defaultDirections->map(function ($d) {
@@ -307,6 +317,10 @@ class ParametrageController extends Controller
                 'infos_generales.*.key_attribut' => 'required|boolean',
                 'infos_generales.*.obligatoire' => 'required|boolean',
                 'infos_generales.*.type' => 'nullable|string|in:date,texte,montant,numéro',
+                'files_demandes' => 'nullable|array',
+                'files_demandes.*.libelle' => 'required|string',
+                'files_demandes.*.obligatoire' => 'required|boolean',
+                'files_demandes.*.format' => 'nullable|string',
             ], [
                 'libelle.required' => 'Le libellé est obligatoire',
                 'libelle.string' => 'Le libellé doit être une chaîne de caractères',
@@ -357,8 +371,20 @@ class ParametrageController extends Controller
                     }
                 }
 
-                // Charger la relation infosGenerales pour la retourner dans la réponse
-                $ticket->load('infosGenerales');
+                // Enregistrer les fichiers demandés si fournis
+                if ($request->has('files_demandes') && is_array($request->files_demandes)) {
+                    foreach ($request->files_demandes as $file) {
+                        BRecTicketFile::create([
+                            'bticket_id' => $ticket->id,
+                            'libelle' => $file['libelle'],
+                            'obligatoire' => $file['obligatoire'],
+                            'format_fichier' => $file['format'] ?? null,
+                        ]);
+                    }
+                }
+
+                // Charger les relations pour la réponse
+                $ticket->load(['infosGenerales','filesDemandes']);
 
                 return response()->json([
                     'message' => 'Ticket créé avec succès',
@@ -405,6 +431,10 @@ class ParametrageController extends Controller
                 'infos_generales.*.key_attribut' => 'required|boolean',
                 'infos_generales.*.obligatoire' => 'required|boolean',
                 'infos_generales.*.type' => 'nullable|string|in:date,texte,montant,numéro',
+                'files_demandes' => 'nullable|array',
+                'files_demandes.*.libelle' => 'required|string',
+                'files_demandes.*.obligatoire' => 'required|boolean',
+                'files_demandes.*.format' => 'nullable|string',
             ], [
                 'libelle.required' => 'Le libellé est obligatoire',
                 'libelle.string' => 'Le libellé doit être une chaîne de caractères',
@@ -457,8 +487,23 @@ class ParametrageController extends Controller
                     }
                 }
 
-                // Charger la relation infosGenerales pour la retourner dans la réponse
-                $ticket->load('infosGenerales');
+                // Supprimer les anciens fichiers demandés
+                $ticket->filesDemandes()->delete();
+
+                // Réinsérer les nouveaux fichiers demandés si fournis
+                if ($request->has('files_demandes') && is_array($request->files_demandes)) {
+                    foreach ($request->files_demandes as $file) {
+                        BRecTicketFile::create([
+                            'bticket_id' => $ticket->id,
+                            'libelle' => $file['libelle'],
+                            'obligatoire' => $file['obligatoire'],
+                            'format_fichier' => $file['format'] ?? null,
+                        ]);
+                    }
+                }
+
+                // Charger les relations pour la réponse
+                $ticket->load(['infosGenerales','filesDemandes']);
 
                 return response()->json([
                     'message' => 'Ticket modifié avec succès',
@@ -487,7 +532,8 @@ class ParametrageController extends Controller
             $ticket = BRecTickets::with([
                 'infosGenerales',
                 'types.details',
-                'defaultDirections'
+                'defaultDirections',
+                'filesDemandes'
             ])->find($id);
 
             if (!$ticket) {
@@ -535,8 +581,15 @@ class ParametrageController extends Controller
                             ];
                         })
                     ];
-                })
-                ,
+                }),
+                'files_demandes' => $ticket->filesDemandes->map(function ($file) {
+                    return [
+                        'id' => $file->id,
+                        'libelle' => $file->libelle,
+                        'obligatoire' => (bool) ($file->obligatoire ?? false),
+                        'format' => $file->format_fichier,
+                    ];
+                }),
                 'default_directions' => $ticket->defaultDirections->map(function ($d) {
                     return [
                         'id' => $d->id,

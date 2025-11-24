@@ -60,4 +60,12 @@ class BRecTickets extends Model
     {
         return $this->hasMany(BRecDefaultDirection::class, 'bticket_id');
     }
+
+    /**
+     * Relation : Un ticket peut avoir plusieurs fichiers demandés.
+     */
+    public function filesDemandes(): HasMany
+    {
+        return $this->hasMany(BRecTicketFile::class, 'bticket_id');
+    }
 }
