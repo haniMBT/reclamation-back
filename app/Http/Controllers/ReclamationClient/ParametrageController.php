@@ -697,7 +697,7 @@ class ParametrageController extends Controller
                         $qq->where('direction', $userDirection);
                     })
                     ->orWhereNull('bticket_id');
-                });
+                })->where('direction', $userDirection);
             }
 
             $items = $query->orderBy('id', 'desc')->get()->map(function ($d) {
