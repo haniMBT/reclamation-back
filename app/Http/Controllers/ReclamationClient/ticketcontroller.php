@@ -295,10 +295,10 @@ class TicketController extends Controller
                 'direction' => 'required|string|in:ENTRANT,SORTANT',
                 'status' => 'required|string|in:OUVERT,FERME,EN_COURS',
                 'objet' => 'nullable|string|min:1|max:255',
-                'info_general_data' => 'required|array|min:1',
-                'info_general_data.*.info_general_id' => 'required|integer|min:1',
-                'info_general_data.*.value' => 'required|string|min:1|max:255',
-                'info_general_data.*.key_attribut' => 'required|boolean',
+                // Assouplir la validation: les infos générales sont optionnelles et leurs champs ne sont pas requis ici
+                'info_general_data' => 'nullable|array',
+                'info_general_data.*.info_general_id' => 'nullable|integer|min:1',
+                'info_general_data.*.key_attribut' => 'nullable|boolean',
                 'info_general_data.*.type' => 'nullable|string|in:date,texte,montant,numéro',
                 'ignore_duplicate' => 'sometimes|boolean'
             ], [
@@ -306,11 +306,6 @@ class TicketController extends Controller
                 'bticket_id.exists' => 'Le ticket sélectionné n\'existe pas.',
                 'objet.min' => 'L\'objet ne peut pas être vide.',
                 'objet.max' => 'L\'objet ne peut pas dépasser 255 caractères.',
-                'info_general_data.required' => 'Les informations générales sont requises.',
-                'info_general_data.min' => 'Au moins une information générale est requise.',
-                'info_general_data.*.value.required' => 'La valeur du champ est requise.',
-                'info_general_data.*.value.min' => 'La valeur du champ ne peut pas être vide.',
-                'info_general_data.*.value.max' => 'La valeur du champ ne peut pas dépasser 255 caractères.',
                 'info_general_data.*.type.in' => 'Le type de champ doit être parmi: date, texte, montant, numéro'
             ]);
 
@@ -429,6 +424,34 @@ class TicketController extends Controller
     private function insertTicketData($bticketId, $userId, $direction, $status, $infoGeneralData, $objet = null): JsonResponse
     {
         try {
+            // Vérification des champs obligatoires basés sur b_rec_info_general
+            $requiredInfos = \App\Models\ReclamationClient\BRecInfoGeneral::where('bticket_id', $bticketId)
+                ->where('obligatoire', true)
+                ->get(['id', 'libelle']);
+
+            if ($requiredInfos->isNotEmpty()) {
+                $missingMessages = [];
+                foreach ($requiredInfos as $req) {
+                    $found = false;
+                    foreach ($infoGeneralData as $infoData) {
+                        $candidateId = isset($infoData['info_general_id']) ? (int)$infoData['info_general_id'] : null;
+                        $value = isset($infoData['value']) ? trim((string)$infoData['value']) : '';
+                        if ($candidateId === (int)$req->id && $value !== '') {
+                            $found = true;
+                            break;
+                        }
+                    }
+                    if (!$found) {
+                        $missingMessages[] = "Le champ '{$req->libelle}' est obligatoire.";
+                    }
+                }
+                if (!empty($missingMessages)) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'info_general_data' => $missingMessages
+                    ]);
+                }
+            }
+
             DB::beginTransaction();
 
             // Insérer dans t_rec_tickets
@@ -1097,6 +1120,35 @@ class TicketController extends Controller
 
             // Mettre à jour les informations générales
             if ($infosGenerales && is_array($infosGenerales)) {
+                // Vérifier les champs obligatoires basés sur b_rec_info_general
+                $requiredInfos = \App\Models\ReclamationClient\BRecInfoGeneral::where('bticket_id', $ticket->bticket_id)
+                    ->where('obligatoire', true)
+                    ->get(['id', 'libelle']);
+
+                if ($requiredInfos->isNotEmpty()) {
+                    $missingMessages = [];
+                    foreach ($requiredInfos as $req) {
+                        $found = false;
+                        foreach ($infosGenerales as $infoData) {
+                            // Supporter différentes structures d'entrée: 'id' ou 'info_general_id', et 'valeur' ou 'value'
+                            $candidateId = isset($infoData['info_general_id']) ? (int)$infoData['info_general_id'] : (isset($infoData['id']) ? (int)$infoData['id'] : null);
+                            $value = isset($infoData['valeur']) ? trim((string)$infoData['valeur']) : (isset($infoData['value']) ? trim((string)$infoData['value']) : '');
+                            if ($candidateId === (int)$req->id && $value !== '') {
+                                $found = true;
+                                break;
+                            }
+                        }
+                        if (!$found) {
+                            $missingMessages[] = "Le champ '{$req->libelle}' est obligatoire.";
+                        }
+                    }
+                    if (!empty($missingMessages)) {
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            'infos_generales' => $missingMessages
+                        ]);
+                    }
+                }
+
                 // Supprimer les anciennes informations générales
                 TRecInfoGeneral::where('tticket_id', $ticket->id)->delete();
 
