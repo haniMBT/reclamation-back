@@ -58,6 +58,7 @@ class TicketController extends Controller
                             'id' => $info->id,
                             'libelle' => $info->libelle,
                             'key_attirubut' => $info->key_attirubut,
+                            'obligatoire' => $info->obligatoire,
                             'bticket_id' => $info->bticket_id,
                             'type' => $info->type ?? null
                         ];
