@@ -70,7 +70,7 @@ class ParametrageController extends Controller
                 return [
                     'id' => $ticket->id,
                     'libelle' => $ticket->libelle,
-                    'documentAfornir' => $ticket->documentAfornir,
+                    // 'documentAfornir' => $ticket->documentAfornir,
                     'direction' => $ticket->direction,
                     'possibilite_suppression' => $ticket->possibilite_suppression,
                     'definition' => $ticket->definition,
@@ -309,7 +309,7 @@ class ParametrageController extends Controller
             // Validation des données
             $validator = Validator::make($request->all(), [
                 'libelle' => 'required|string',
-                'documentAfornir' => 'nullable|string',
+                // 'documentAfornir' => 'nullable|string',
                 'direction' => 'required|string|exists:direction,DIRECTION',
                 'definition' => 'nullable|string',
                 'infos_generales' => 'nullable|array',
@@ -325,7 +325,7 @@ class ParametrageController extends Controller
                 'libelle.required' => 'Le libellé est obligatoire',
                 'libelle.string' => 'Le libellé doit être une chaîne de caractères',
                 'libelle.max' => 'Le libellé ne peut pas dépasser 255 caractères',
-                'documentAfornir.string' => 'Le document à fournir doit être une chaîne de caractères',
+                // 'documentAfornir.string' => 'Le document à fournir doit être une chaîne de caractères',
                 'direction.required' => 'La direction est obligatoire',
                 'direction.string' => 'La direction doit être une chaîne de caractères',
                 'direction.exists' => 'La direction sélectionnée n\'existe pas',
@@ -351,7 +351,7 @@ class ParametrageController extends Controller
                 // Créer le nouveau ticket
                 $ticket = BRecTickets::create([
                     'libelle' => $request->libelle,
-                    'documentAfornir' => $request->documentAfornir,
+                    // 'documentAfornir' => $request->documentAfornir,
                     'direction' => $request->direction,
                     'definition' => $request->definition,
                     'is_active' => false,
@@ -423,7 +423,7 @@ class ParametrageController extends Controller
             // Validation des données
             $validator = Validator::make($request->all(), [
                 'libelle' => 'required|string',
-                'documentAfornir' => 'nullable|string',
+                // 'documentAfornir' => 'nullable|string',
                 'direction' => 'required|string|exists:direction,DIRECTION',
                 'definition' => 'nullable|string',
                 'infos_generales' => 'nullable|array',
@@ -439,7 +439,7 @@ class ParametrageController extends Controller
                 'libelle.required' => 'Le libellé est obligatoire',
                 'libelle.string' => 'Le libellé doit être une chaîne de caractères',
                 'libelle.max' => 'Le libellé ne peut pas dépasser 255 caractères',
-                'documentAfornir.string' => 'Le document à fournir doit être une chaîne de caractères',
+                // 'documentAfornir.string' => 'Le document à fournir doit être une chaîne de caractères',
                 'direction.required' => 'La direction est obligatoire',
                 'direction.string' => 'La direction doit être une chaîne de caractères',
                 'direction.exists' => 'La direction sélectionnée n\'existe pas',
@@ -465,7 +465,7 @@ class ParametrageController extends Controller
                 // Mettre à jour le ticket
                 $ticket->update([
                     'libelle' => $request->libelle,
-                    'documentAfornir' => $request->documentAfornir,
+                    // 'documentAfornir' => $request->documentAfornir,
                     'direction' => $request->direction,
                     'definition' => $request->definition
                 ]);
