@@ -1009,6 +1009,17 @@ class TicketController extends Controller
                             'id' => $info->id,
                             'libelle' => $info->libelle,
                             'key_attribut' => $info->key_attirubut,
+                            'type' => $info->type ?? null,
+                            'obligatoire' => (bool)($info->obligatoire ?? false),
+                        ];
+                    }),
+                    // Fichiers demandés pour ce type de ticket de base
+                    'files_demandes' => $ticket->baseTicket->filesDemandes->map(function ($f) {
+                        return [
+                            'id' => $f->id,
+                            'libelle' => $f->libelle,
+                            'obligatoire' => (bool)$f->obligatoire,
+                            'format_fichier' => $f->format_fichier,
                         ];
                     })
                 ],
@@ -1037,10 +1048,11 @@ class TicketController extends Controller
                     ];
                 }),
                 'files' => $ticket->files
-                ->whereNull('mode') // ✅ on filtre d'abord les fichiers dont le champ "mode" est null
+                ->whereNull('mode')
                 ->map(function ($file) {
                     return [
                         'id' => $file->id,
+                        'libelle' => $file->libelle,
                         'nom_fichier' => $file->nom_fichier,
                         'chemin_fichier' => $file->chemin_fichier,
                         'taille_fichier' => $file->taille_fichier,
@@ -1123,6 +1135,8 @@ class TicketController extends Controller
                 'description' => 'nullable|string|max:5000',
                 'files' => 'nullable|array',
                 'files.*' => 'file|max:10240|mimes:jpg,jpeg,png,gif,pdf,doc,docx,txt',
+                'ticket_files' => 'nullable|array',
+                'ticket_files.*' => 'file|max:10240|mimes:jpg,jpeg,png,gif,pdf,doc,docx,txt',
                 'files_to_delete' => 'nullable|array',
                 'files_to_delete.*' => 'integer|exists:t_rec_ticket_files,id',
             ], [
@@ -1130,6 +1144,8 @@ class TicketController extends Controller
                 'objet.max' => 'L\'objet ne peut pas dépasser 255 caractères.',
                 'files.*.max' => 'La taille du fichier ne peut pas dépasser 10 MB.',
                 'files.*.mimes' => 'Le format du fichier n\'est pas autorisé.',
+                'ticket_files.*.max' => 'La taille du fichier demandé ne peut pas dépasser 10 MB.',
+                'ticket_files.*.mimes' => 'Le format du fichier demandé n\'est pas autorisé.',
             ]);
 
             // Normaliser type_selection (facultatif)
@@ -1246,6 +1262,63 @@ class TicketController extends Controller
                         // Supprimer l'enregistrement en base
                         $file->delete();
                     }
+                }
+            }
+
+            // Gestion des fichiers demandés basés sur b_rec_ticket_files (édition)
+            // Clés attendues: ticket_files[<id_demande>] => fichier
+            $requestedFiles = $request->file('ticket_files', []);
+
+            // Charger les demandes de fichiers du ticket de base
+            $demandeFiles = $ticket->baseTicket ? $ticket->baseTicket->filesDemandes : collect();
+
+            // Prendre en compte les suppressions pour l'obligation
+            $deletedIds = $validatedData['files_to_delete'] ?? [];
+            $missingRequired = [];
+
+            foreach ($demandeFiles as $df) {
+                $dfId = $df->id;
+                $isRequired = (bool) $df->obligatoire;
+                $hasNew = isset($requestedFiles[$dfId]) && $requestedFiles[$dfId] && $requestedFiles[$dfId]->isValid();
+
+                // Vérifier s'il existe déjà un fichier correspondant au libellé et non supprimé
+                $hasExisting = TRecTicketFile::where('ticket_id', $ticket->id)
+                    ->where('libelle', $df->libelle)
+                    ->whereNotIn('id', $deletedIds)
+                    ->exists();
+
+                if ($isRequired && !$hasExisting && !$hasNew) {
+                    $missingRequired[] = "Le fichier '{$df->libelle}' est obligatoire.";
+                }
+            }
+
+            if (!empty($missingRequired)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'files' => $missingRequired
+                ]);
+            }
+
+            // Enregistrer les nouveaux fichiers demandés fournis
+            foreach ($demandeFiles as $df) {
+                $dfId = $df->id;
+                if (isset($requestedFiles[$dfId]) && $requestedFiles[$dfId] && $requestedFiles[$dfId]->isValid()) {
+                    $file = $requestedFiles[$dfId];
+
+                    // Générer un nom unique et stocker
+                    $nomStockage = $this->generateUniqueFileName($file);
+                    $cheminStockage = 'tickets/' . date('Y/m');
+                    $cheminComplet = $file->storeAs($cheminStockage, $nomStockage, 'public');
+
+                    // Enregistrer en base avec libelle lié à la demande
+                    TRecTicketFile::create([
+                        'ticket_id' => $ticket->id,
+                        'libelle' => $df->libelle,
+                        'nom_fichier' => $file->getClientOriginalName(),
+                        'chemin_fichier' => 'public/' . $cheminComplet,
+                        'taille_fichier' => $file->getSize(),
+                        'type_fichier' => $file->getClientMimeType(),
+                        'mode' => null,
+                    ]);
                 }
             }
 
