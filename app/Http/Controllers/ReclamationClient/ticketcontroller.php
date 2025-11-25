@@ -436,7 +436,11 @@ class TicketController extends Controller
                     $found = false;
                     foreach ($infoGeneralData as $infoData) {
                         $candidateId = isset($infoData['info_general_id']) ? (int)$infoData['info_general_id'] : null;
-                        $value = isset($infoData['value']) ? trim((string)$infoData['value']) : '';
+                        // Supporter à la fois 'value' et 'valeur' selon la provenance des données
+                        $rawVal = isset($infoData['value'])
+                            ? $infoData['value']
+                            : (isset($infoData['valeur']) ? $infoData['valeur'] : '');
+                        $value = trim((string)$rawVal);
                         if ($candidateId === (int)$req->id && $value !== '') {
                             $found = true;
                             break;
