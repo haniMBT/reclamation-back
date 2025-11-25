@@ -519,7 +519,7 @@ class TicketController extends Controller
     {
         try {
             // Récupérer le ticket de base avec ses informations
-            $baseTicket = BRecTickets::with('infosGenerales')->find($ticketId);
+            $baseTicket = BRecTickets::with(['infosGenerales', 'filesDemandes'])->find($ticketId);
 
             if (!$baseTicket) {
                 return response()->json([
@@ -570,6 +570,14 @@ class TicketController extends Controller
                         'id' => $info->id,
                         'libelle' => $info->libelle,
                         'key_attribut' => $info->key_attirubut,
+                    ];
+                }),
+                'files_demandes' => $baseTicket->filesDemandes->map(function ($file) {
+                    return [
+                        'id' => $file->id,
+                        'libelle' => $file->libelle,
+                        'obligatoire' => (bool) $file->obligatoire,
+                        'format_fichier' => $file->format_fichier,
                     ];
                 })
             ];
@@ -789,9 +797,63 @@ class TicketController extends Controller
                     ]);
             }
 
-            // Gestion des fichiers uploadés
-            if ($request->hasFile('files')) {
-                $this->handleTicketFileUploads($request->file('files'), $tticketId);
+            // Gestion des fichiers demandés basés sur b_rec_ticket_files
+            // Clés attendues: ticket_files[<id_demande>] => fichier
+            $requestedFiles = $request->file('ticket_files', []);
+
+            // Charger les demandes de fichiers du ticket de base
+            $ticket = TRecTicket::with('baseTicket.filesDemandes')->find($tticketId);
+            if (!$ticket) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Ticket non trouvé'
+                ], 404);
+            }
+
+            $demandeFiles = $ticket->baseTicket ? $ticket->baseTicket->filesDemandes : collect();
+
+            // Valider la présence des fichiers obligatoires
+            $missingRequired = [];
+            foreach ($demandeFiles as $df) {
+                $id = $df->id;
+                $isRequired = (bool) $df->obligatoire;
+                $hasFile = isset($requestedFiles[$id]) && $requestedFiles[$id] && $requestedFiles[$id]->isValid();
+                if ($isRequired && !$hasFile) {
+                    $missingRequired[] = "Le fichier '{$df->libelle}' est obligatoire.";
+                }
+            }
+            if (!empty($missingRequired)) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Erreurs de validation',
+                    'errors' => ['files' => $missingRequired]
+                ], 422);
+            }
+
+            // Enregistrer les fichiers fournis
+            foreach ($demandeFiles as $df) {
+                $id = $df->id;
+                if (isset($requestedFiles[$id]) && $requestedFiles[$id] && $requestedFiles[$id]->isValid()) {
+                    $file = $requestedFiles[$id];
+
+                    // Générer un nom unique et stocker
+                    $nomStockage = $this->generateUniqueFileName($file);
+                    $cheminStockage = 'tickets/' . date('Y/m');
+                    $cheminComplet = $file->storeAs($cheminStockage, $nomStockage, 'public');
+
+                    // Enregistrer en base avec libelle lié à la demande
+                    TRecTicketFile::create([
+                        'ticket_id' => $tticketId,
+                        'libelle' => $df->libelle,
+                        'nom_fichier' => $file->getClientOriginalName(),
+                        'chemin_fichier' => 'public/' . $cheminComplet,
+                        'taille_fichier' => $file->getSize(),
+                        'type_fichier' => $file->getClientMimeType(),
+                        'mode' => null,
+                    ]);
+                }
             }
 
             // Insertion des types et détails selon le nouveau format (si fourni)

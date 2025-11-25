@@ -13,6 +13,7 @@ class TRecTicketFile extends Model
 
     protected $fillable = [
         'ticket_id',
+        'libelle',
         'nom_fichier',
         'chemin_fichier',
         'taille_fichier',
