@@ -793,4 +793,57 @@ class NotificationService
             Log::error("Erreur lors de la création des notifications de suppression de direction pour le ticket {$ticket->id}: " . $e->getMessage());
         }
     }
+
+    /**
+     * Créer des notifications pour le changement de direction pilote d'un ticket
+     *
+     * @param TRecTicket $ticket
+     * @param string $newPilotDirection Direction cible désignée pilote
+     * @param int $pilotUserId ID de l'utilisateur qui effectue le changement
+     * @return void
+     */
+    public function createPilotChangeNotifications(TRecTicket $ticket, string $newPilotDirection, int $pilotUserId): void
+    {
+        try {
+            // Charger les relations nécessaires
+            if (!$ticket->relationLoaded('user')) {
+                $ticket->load('user');
+            }
+            if (!$ticket->relationLoaded('baseTicket')) {
+                $ticket->load('baseTicket');
+            }
+
+            // Récupérer le libellé du ticket de base et l'objet
+            $libelle = $ticket->baseTicket ? $ticket->baseTicket->libelle : $ticket->objet;
+
+            // Trouver les employés répondeurs de la direction cible
+            $targetUsers = $this->findEmployeRepondeursByDirection($newPilotDirection);
+
+            foreach ($targetUsers as $targetUser) {
+                if ($targetUser && $targetUser->id != $pilotUserId) {
+                    $message = "Vous avez reçu une demande pour devenir la direction pilote de la réclamation \"{$ticket->objet}\" ticket \"{$libelle}\".";
+
+                    $this->createNotification([
+                        'tticket_id' => $ticket->id,
+                        'sender_id' => $pilotUserId,
+                        'id_recepteur' => $targetUser->id,
+                        'direction' => $newPilotDirection,
+                        'message' => $message,
+                        'type' => 'orientation_changement',
+                        'mode' => 'traitement',
+                        'meta' => [
+                            'ticket_title' => $ticket->objet,
+                            'libelle' => $libelle,
+                            'direction_pilote' => $newPilotDirection,
+                        ],
+                        'is_read' => 0
+                    ]);
+
+                    \Log::info("Notification de changement de direction pilote créée pour le ticket {$ticket->id}, direction: {$newPilotDirection}, utilisateur: {$targetUser->id}");
+                }
+            }
+        } catch (\Exception $e) {
+            \Log::error("Erreur lors de la création des notifications de changement de direction pilote pour le ticket {$ticket->id}: " . $e->getMessage());
+        }
+    }
 }

@@ -411,7 +411,7 @@ class DirectionController extends Controller
                 $direction->tticket_id = $ticket->id;
                 $direction->direction = $directionValue;
                 $direction->statut_direction = 'traitement';
-                $direction->type_orientation = 'changement';
+                $direction->type_orientation = 'orientation_changement';
                 if (property_exists($direction, 'source_orientation')) {
                     $direction->source_orientation = Auth::user()->direction ?? null;
                 }
@@ -421,6 +421,14 @@ class DirectionController extends Controller
             // Enregistrer le motif du changement
             $ticket->motif_changement = $validated['motif'];
             $ticket->save();
+
+            // Notifications aux employés répondeurs de la direction pilote concernée
+            try {
+                $notificationService = new \App\Services\ReclamationClient\NotificationService();
+                $notificationService->createPilotChangeNotifications($ticket, $directionValue, Auth::id());
+            } catch (\Exception $e) {
+                Log::error("Erreur lors de la création des notifications orientation_changement: " . $e->getMessage());
+            }
 
             return response()->json([
                 'success' => true,
