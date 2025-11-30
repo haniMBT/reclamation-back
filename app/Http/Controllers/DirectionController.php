@@ -385,4 +385,65 @@ class DirectionController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Orientation changement: ajoute la direction si absente et enregistre le motif du changement.
+     */
+    public function storeOrientationChange(Request $request, int $ticketId): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'direction' => 'required|string|min:2',
+                'motif' => 'required|string|min:3',
+            ]);
+
+            $ticket = TRecTicket::findOrFail($ticketId);
+
+            $directionValue = $validated['direction'];
+
+            // Vérifier si la direction est déjà associée
+            $exists = TRecTicketDirection::where('tticket_id', $ticket->id)
+                ->where('direction', $directionValue)
+                ->exists();
+
+            if (!$exists) {
+                $direction = new TRecTicketDirection();
+                $direction->tticket_id = $ticket->id;
+                $direction->direction = $directionValue;
+                $direction->statut_direction = 'traitement';
+                $direction->type_orientation = 'changement';
+                if (property_exists($direction, 'source_orientation')) {
+                    $direction->source_orientation = Auth::user()->direction ?? null;
+                }
+                $direction->save();
+            }
+
+            // Enregistrer le motif du changement
+            $ticket->motif_changement = $validated['motif'];
+            $ticket->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Orientation changée et motif enregistré',
+                'data' => [
+                    'direction_added' => !$exists,
+                    'ticket_id' => $ticket->id,
+                    'direction' => $directionValue,
+                ],
+            ], 200);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur de validation',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Erreur lors du changement d\'orientation: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors du changement d\'orientation',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
 }

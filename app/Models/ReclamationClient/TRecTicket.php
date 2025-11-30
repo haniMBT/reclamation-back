@@ -45,6 +45,7 @@ class TRecTicket extends Model
         'closed_at',
         'closed_by',
         'conclusion',
+        'motif_changement',
         'reply_permission',
         'date_en_cours',
         'date_recours',
