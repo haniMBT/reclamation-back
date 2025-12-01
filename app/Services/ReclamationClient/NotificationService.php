@@ -846,4 +846,53 @@ class NotificationService
             \Log::error("Erreur lors de la création des notifications de changement de direction pilote pour le ticket {$ticket->id}: " . $e->getMessage());
         }
     }
+
+    /**
+     * Créer des notifications pour un refus de changement de direction pilote
+     *
+     * @param TRecTicket $ticket
+     * @param string $requestingDirection Direction qui a demandé le changement
+     * @param string $deciderDirection Direction qui a pris la décision (refus)
+     * @param string $motifRefus Motif du refus
+     * @param int $actorUserId ID de l'utilisateur qui a effectué l'action
+     * @return void
+     */
+    public function createPilotChangeRefusalNotifications(TRecTicket $ticket, string $requestingDirection, string $deciderDirection, string $motifRefus, int $actorUserId): void
+    {
+        try {
+            if (!$ticket->relationLoaded('baseTicket')) {
+                $ticket->load('baseTicket');
+            }
+            $libelle = $ticket->baseTicket ? $ticket->baseTicket->libelle : $ticket->objet;
+
+            $targetUsers = $this->findEmployeRepondeursByDirection($requestingDirection);
+            foreach ($targetUsers as $targetUser) {
+                if ($targetUser && $targetUser->id != $actorUserId) {
+                    $message = "Votre demande de changement de direction pilote pour la réclamation \"{$ticket->objet}\" a été refusée par la direction \"{$deciderDirection}\". Motif: {$motifRefus}.";
+
+                    $this->createNotification([
+                        'tticket_id' => $ticket->id,
+                        'sender_id' => $actorUserId,
+                        'id_recepteur' => $targetUser->id,
+                        'direction' => $requestingDirection,
+                        'message' => $message,
+                        'type' => 'orientation_changement_refus',
+                        'mode' => 'traitement',
+                        'meta' => [
+                            'ticket_title' => $ticket->objet,
+                            'libelle' => $libelle,
+                            'direction_demandeuse' => $requestingDirection,
+                            'direction_decisionnaire' => $deciderDirection,
+                            'motif_refus' => $motifRefus,
+                        ],
+                        'is_read' => 0
+                    ]);
+
+                    \Log::info("Notification de refus de changement de direction pilote créée pour le ticket {$ticket->id}, direction demandeuse: {$requestingDirection}, utilisateur: {$targetUser->id}");
+                }
+            }
+        } catch (\Exception $e) {
+            \Log::error("Erreur lors de la création des notifications de refus de changement de direction pilote pour le ticket {$ticket->id}: " . $e->getMessage());
+        }
+    }
 }

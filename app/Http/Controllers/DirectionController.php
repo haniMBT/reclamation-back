@@ -21,7 +21,13 @@ class DirectionController extends Controller
    public function index($ticket_id): JsonResponse
     {
         try {
-            $directions = Direction::select('NUMDIR as id', 'direction.DIRECTION as label', 'direction.DIRECTION as value')
+            $directions = Direction::select(
+                    'NUMDIR as id',
+                    'direction.DIRECTION as label',
+                    'direction.DIRECTION as value',
+                    't_rec_ticket_direction.type_orientation as type_orientation',
+                    't_rec_ticket_direction.statut_direction as statut_direction'
+                )
                 ->orderBy('direction.DIRECTION', 'asc')->join('t_rec_ticket_direction', 'direction.DIRECTION', '=', 't_rec_ticket_direction.direction')
                 ->where('t_rec_ticket_direction.tticket_id', $ticket_id)
                 ->get();
@@ -411,7 +417,7 @@ class DirectionController extends Controller
                 $direction->tticket_id = $ticket->id;
                 $direction->direction = $directionValue;
                 $direction->statut_direction = 'traitement';
-                $direction->type_orientation = 'orientation_changement';
+                $direction->type_orientation = 'changement';
                 if (property_exists($direction, 'source_orientation')) {
                     $direction->source_orientation = Auth::user()->direction ?? null;
                 }
@@ -450,6 +456,151 @@ class DirectionController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors du changement d\'orientation',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Décision sur la demande de changement de direction pilote (accepter / refuser).
+     */
+    public function decideOrientationChange(Request $request, int $ticketId): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'decision' => 'required|string|in:accept,refuse',
+                'direction' => 'required|string|min:2',
+                'motif_refus' => 'nullable|string|min:3',
+            ]);
+
+            $ticket = TRecTicket::findOrFail($ticketId);
+            $userDirection = Auth::user()->direction ?? null;
+            $concernedDirection = $validated['direction'];
+
+            // Vérifier qu'il existe une demande de changement pour cette direction
+            $changeRequest = TRecTicketDirection::where('tticket_id', $ticket->id)
+                ->where('direction', $concernedDirection)
+                ->whereIn('type_orientation', ['changement'])
+                ->first();
+
+            if (!$changeRequest) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Aucune demande de changement trouvée pour cette direction',
+                ], 404);
+            }
+
+            // Sécurité: seule la direction concernée peut valider/refuser
+            if ($userDirection !== $changeRequest->direction) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Accès refusé: direction non concernée',
+                ], 403);
+            }
+
+            if ($validated['decision'] === 'accept') {
+                // Marquer l'ancienne direction pilote
+                $currentPilot = TRecTicketDirection::where('tticket_id', $ticket->id)
+                    ->where('type_orientation', 'ticket')
+                    ->first();
+
+                if ($currentPilot) {
+                    $currentPilot->type_orientation = 'changement_accepter';
+                    $currentPilot->save();
+                }
+
+                // La direction de la demande devient pilote
+                $changeRequest->type_orientation = 'ticket';
+                $changeRequest->statut_direction = 'traitement';
+                $changeRequest->save();
+
+                // Mettre à jour le ticket
+                $ticket->accepter_piloter = true;
+                $ticket->motif_refu_changement = null;
+                $ticket->save();
+
+                // Notifications d’acceptation pour les employés répondeurs de la nouvelle direction pilote
+                try {
+                    $notificationService = new \App\Services\ReclamationClient\NotificationService();
+                    $notificationService->createPilotChangeNotifications($ticket, $concernedDirection, Auth::id());
+                } catch (\Exception $e) {
+                    Log::error("Erreur notification acceptation changement pilote: " . $e->getMessage());
+                }
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Changement de direction pilote accepté',
+                    'data' => [
+                        'ticket_id' => $ticket->id,
+                        'new_pilot_direction' => $concernedDirection,
+                    ],
+                ], 200);
+            } else {
+                // Refus: enregistrer motif
+                if (empty($validated['motif_refus'])) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Le motif de refus est obligatoire',
+                    ], 422);
+                }
+
+                $ticket->accepter_piloter = false;
+                $ticket->motif_refu_changement = $validated['motif_refus'];
+                $ticket->save();
+
+                // Notification à la direction demandeuse (source_orientation si disponible, sinon changeRequest->direction)
+                // $requestingDirection = $changeRequest->source_orientation ?: $changeRequest->direction;
+                 // Vérifier qu'il existe une demande de changement pour cette direction
+                $requestingDirection = TRecTicketDirection::where('tticket_id', $ticket->id)
+                    ->whereIn('type_orientation', ['ticket'])
+                    ->first()->direction;
+
+                // La direction de la demande devient pilote
+                if ($changeRequest->source_orientation==null) {
+                    $changeRequest->delete();
+                }
+                // else {
+                //     $changeRequest->type_orientation = 'type';
+                //     $changeRequest->statut_direction = 'traitement';
+                //     $changeRequest->save();
+                // }
+
+
+                try {
+                    $notificationService = new \App\Services\ReclamationClient\NotificationService();
+                    if (method_exists($notificationService, 'createPilotChangeRefusalNotifications')) {
+                        $notificationService->createPilotChangeRefusalNotifications(
+                            $ticket,
+                            $requestingDirection,
+                            $userDirection ?? 'inconnu',
+                            $validated['motif_refus'],
+                            Auth::id()
+                        );
+                    }
+                } catch (\Exception $e) {
+                    Log::error("Erreur notification refus changement pilote: " . $e->getMessage());
+                }
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Changement de direction pilote refusé',
+                    'data' => [
+                        'ticket_id' => $ticket->id,
+                        'requesting_direction' => $requestingDirection,
+                    ],
+                ], 200);
+            }
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur de validation',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de la décision de changement d\'orientation: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la décision de changement d\'orientation',
                 'error' => $e->getMessage(),
             ], 500);
         }

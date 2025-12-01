@@ -74,6 +74,7 @@ Route::delete('rec/default-directions/{id}', [ParametrageController::class, 'def
     Route::post('rec/directions_ticket/{ticket_id}/delete', [DirectionController::class, 'deleteTicketDirections'])->name('directions.deleteTicketDirection');
     // API dédiée pour l'orientation changement avec motif
     Route::post('rec/tickets/{ticketId}/orientation-changement', [DirectionController::class, 'storeOrientationChange'])->name('tickets.orientationChange');
+    Route::post('rec/tickets/{ticketId}/orientation-changement/decision', [DirectionController::class, 'decideOrientationChange'])->name('tickets.orientationChange.decision');
     Route::get('rec/directions/{id}', [DirectionController::class, 'show'])->name('directions.show');
     Route::post('rec/directions', [DirectionController::class, 'store'])->name('directions.store');
     Route::put('rec/directions/{id}', [DirectionController::class, 'update'])->name('directions.update');
