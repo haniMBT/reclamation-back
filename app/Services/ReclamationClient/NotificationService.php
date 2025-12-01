@@ -895,4 +895,53 @@ class NotificationService
             \Log::error("Erreur lors de la création des notifications de refus de changement de direction pilote pour le ticket {$ticket->id}: " . $e->getMessage());
         }
     }
+
+    /**
+     * Informer les employés répondeurs de la direction pilote (type_orientation = 'ticket')
+     * qu'une autre direction s'est retirée du ticket (suppression côté direction elle-même).
+     *
+     * @param TRecTicket $ticket
+     * @param string $pilotDirection Direction actuellement pilote
+     * @param string $removedDirection Direction qui s'est retirée
+     * @param int $actorUserId ID utilisateur ayant effectué la suppression
+     * @return void
+     */
+    public function createInformPilotOnSelfDirectionRemoval(TRecTicket $ticket, string $pilotDirection, string $removedDirection, int $actorUserId): void
+    {
+        try {
+            if (!$ticket->relationLoaded('baseTicket')) {
+                $ticket->load('baseTicket');
+            }
+            $libelle = $ticket->baseTicket ? $ticket->baseTicket->libelle : $ticket->objet;
+
+            // Trouver les employés répondeurs de la direction pilote
+            $targetUsers = $this->findEmployeRepondeursByDirection($pilotDirection);
+            foreach ($targetUsers as $targetUser) {
+                if ($targetUser && $targetUser->id != $actorUserId) {
+                    $message = "La direction \"{$removedDirection}\" s'est retirée de la réclamation \"{$ticket->objet}\" ticket \"{$libelle}\".";
+
+                    $this->createNotification([
+                        'tticket_id' => $ticket->id,
+                        'sender_id' => $actorUserId,
+                        'id_recepteur' => $targetUser->id,
+                        'direction' => $pilotDirection,
+                        'message' => $message,
+                        'type' => 'suppression_direction_autre',
+                        'mode' => 'traitement',
+                        'meta' => [
+                            'ticket_title' => $ticket->objet,
+                            'libelle' => $libelle,
+                            'direction_pilote' => $pilotDirection,
+                            'direction_retiree' => $removedDirection,
+                        ],
+                        'is_read' => 0
+                    ]);
+
+                    \Log::info("Notification envoyée aux répondeurs de la direction pilote {$pilotDirection} pour retrait de {$removedDirection} sur ticket {$ticket->id}, utilisateur: {$targetUser->id}");
+                }
+            }
+        } catch (\Exception $e) {
+            \Log::error("Erreur lors de l'information de la direction pilote sur retrait d'une autre direction, ticket {$ticket->id}: " . $e->getMessage());
+        }
+    }
 }

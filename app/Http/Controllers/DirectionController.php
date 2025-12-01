@@ -435,6 +435,22 @@ class DirectionController extends Controller
                         $userDirection,
                         Auth::id()
                     );
+
+                    // Informer la direction pilote (type_orientation = 'ticket') du retrait de cette direction
+                    $pilotRecord = TRecTicketDirection::where('tticket_id', $ticketId)
+                        ->where('type_orientation', 'ticket')
+                        ->first();
+                    if ($pilotRecord && !empty($pilotRecord->direction)) {
+                        // Envoyer une notification aux employés répondeurs de la direction pilote
+                        if (method_exists($notificationService, 'createInformPilotOnSelfDirectionRemoval')) {
+                            $notificationService->createInformPilotOnSelfDirectionRemoval(
+                                $ticket,
+                                $pilotRecord->direction,
+                                $userDirection,
+                                Auth::id()
+                            );
+                        }
+                    }
                 }
             } catch (\Exception $e) {
                 Log::error("Erreur lors de la création des notifications de suppression (self): " . $e->getMessage());
