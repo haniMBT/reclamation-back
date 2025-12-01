@@ -70,8 +70,10 @@ Route::delete('rec/default-directions/{id}', [ParametrageController::class, 'def
 
     // Routes pour les directions
     Route::get('rec/directions_ticket/{ticket_id}', [DirectionController::class, 'index'])->name('directions.index');
-    Route::post('rec/directions_ticket/{ticket_id}', [DirectionController::class, 'storeTicketDirection'])->name('directions.storeTicketDirection');
-    Route::post('rec/directions_ticket/{ticket_id}/delete', [DirectionController::class, 'deleteTicketDirections'])->name('directions.deleteTicketDirection');
+Route::post('rec/directions_ticket/{ticket_id}', [DirectionController::class, 'storeTicketDirection'])->name('directions.storeTicketDirection');
+Route::post('rec/directions_ticket/{ticket_id}/delete', [DirectionController::class, 'deleteTicketDirections'])->name('directions.deleteTicketDirection');
+// Suppression de la direction de l'utilisateur lorsque type_orientation == 'changement_accepter'
+Route::post('rec/tickets/{ticketId}/directions/self/delete', [DirectionController::class, 'deleteSelfAcceptedChangeDirection'])->name('tickets.direction.self.delete');
     // API dédiée pour l'orientation changement avec motif
     Route::post('rec/tickets/{ticketId}/orientation-changement', [DirectionController::class, 'storeOrientationChange'])->name('tickets.orientationChange');
     Route::post('rec/tickets/{ticketId}/orientation-changement/decision', [DirectionController::class, 'decideOrientationChange'])->name('tickets.orientationChange.decision');

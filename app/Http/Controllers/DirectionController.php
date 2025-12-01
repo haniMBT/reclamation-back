@@ -393,6 +393,73 @@ class DirectionController extends Controller
     }
 
     /**
+     * Supprimer la direction de l'utilisateur lorsqu'elle est en état "changement_accepter".
+     * Cette suppression cible uniquement les enregistrements de type_orientation = 'changement_accepter'
+     * pour la direction de l'utilisateur connecté, et le ticket donné.
+     */
+    public function deleteSelfAcceptedChangeDirection(Request $request, int $ticketId): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            $userDirection = is_object($user) && isset($user->direction) ? $user->direction : null;
+
+            if (!$userDirection) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Direction de l'utilisateur introuvable",
+                ], 403);
+            }
+
+            // Vérifier l'existence d'un lien de type 'changement_accepter' pour cette direction
+            $query = TRecTicketDirection::where('tticket_id', $ticketId)
+                ->where('direction', $userDirection)
+                ->where('type_orientation', 'changement_accepter');
+
+            $records = $query->get();
+            if ($records->count() === 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Aucune direction à supprimer pour l'utilisateur dans l'état 'changement_accepter'",
+                ], 404);
+            }
+
+            $deletedCount = $query->delete();
+
+            // Notifications de suppression (facultatif, cohérent avec la suppression générique)
+            try {
+                $ticket = TRecTicket::find($ticketId);
+                if ($ticket) {
+                    $notificationService = new NotificationService();
+                    $notificationService->createDirectionRemovedNotifications(
+                        $ticket,
+                        $userDirection,
+                        Auth::id()
+                    );
+                }
+            } catch (\Exception $e) {
+                Log::error("Erreur lors de la création des notifications de suppression (self): " . $e->getMessage());
+                // Ne pas faire échouer la requête si la notification échoue
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => $deletedCount . " direction(s) supprimée(s) pour l'utilisateur",
+                'data' => [
+                    'deleted_count' => $deletedCount,
+                    'ticket_id' => $ticketId,
+                    'direction' => $userDirection,
+                ],
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error("Erreur lors de la suppression de la direction de l'utilisateur: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => "Erreur lors de la suppression de la direction",
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+    /**
      * Orientation changement: ajoute la direction si absente et enregistre le motif du changement.
      */
     public function storeOrientationChange(Request $request, int $ticketId): JsonResponse
