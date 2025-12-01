@@ -422,6 +422,17 @@ class DirectionController extends Controller
                     $direction->source_orientation = Auth::user()->direction ?? null;
                 }
                 $direction->save();
+            }else{
+                $TRecTicketDirection = TRecTicketDirection::where('tticket_id', $ticket->id)
+                ->where('direction', $directionValue)
+                ->first();
+
+                $exists = TRecTicketDirection::where('tticket_id', $ticket->id)
+                ->where('direction', $directionValue)
+                ->update([
+                    'type_orientation' => 'changement',
+                    'old_orientation' => $TRecTicketDirection->type_orientation,
+                ]);
             }
 
             // Enregistrer le motif du changement
@@ -559,11 +570,11 @@ class DirectionController extends Controller
                 if ($changeRequest->source_orientation==null) {
                     $changeRequest->delete();
                 }
-                // else {
-                //     $changeRequest->type_orientation = 'type';
-                //     $changeRequest->statut_direction = 'traitement';
-                //     $changeRequest->save();
-                // }
+                else {
+                    $changeRequest->type_orientation = $changeRequest->old_orientation;
+                    $changeRequest->old_orientation = null;
+                    $changeRequest->save();
+                }
 
 
                 try {
