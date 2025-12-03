@@ -446,28 +446,33 @@ class MessageController extends Controller
             $user = Auth::user();
             $userDirection = $user->direction;
 
+            // Trouver la ligne correspondant à direction_destinataire = direction_user et message_id = id_message
             $destinataire = TRecDestinataireMessage::where('message_id', $messageId)
-                ->where('direction_destinataire_recepteur', $userDirection)
+                ->where('direction_destinataire', $userDirection)
                 ->first();
 
             if ($destinataire) {
-                $destinataire->update(['statut' => 'lu']);
+                $destinataire->update([
+                    'statut' => 'lu',
+                    'lu' => 1,
+                    'date_lecture' => now(),
+                ]);
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Message marqué comme lu'
+                    'message' => 'Message marqué comme lu',
                 ]);
             }
 
             return response()->json([
                 'success' => false,
-                'message' => 'Destinataire non trouvé'
+                'message' => 'Destinataire non trouvé',
             ], 404);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de la mise à jour: ' . $e->getMessage()
+                'message' => 'Erreur lors de la mise à jour: ' . $e->getMessage(),
             ], 500);
         }
     }
