@@ -107,7 +107,7 @@ class MainController extends Controller
         $privileges = $request->user()->scopePrivileges($request->volet);
         $dr_id = $request->user()->DIRECTION;
 
-        if ($privileges->visibilite == 'G   ') {
+        if ($privileges->visibilite == 'G') {
             $data['selectedDirection'] = null;
             $data['dr_id'] = null;
         }
@@ -129,15 +129,19 @@ class MainController extends Controller
 
      public function allPrivileges()
     {
-        $privilege_utilisateurs = Auth::user()->scopePrivileges('utilisateurs');
+        $privilege_parametrage = Auth::user()->scopePrivileges('parametrage');
+        $privilege_liste_des_reclamations = Auth::user()->scopePrivileges('liste_des_reclamations');
+        $privilege_parametrage_pcr = Auth::user()->scopePrivileges('parametrage_pcr');
 
-        $data = [
-            'privilege_utilisateurs' =>   $privilege_utilisateurs,
+        $AllPrivilege = [
+            'privilege_parametrage' =>   $privilege_parametrage,
+            'privilege_liste_des_reclamations' =>   $privilege_liste_des_reclamations,
+            'privilege_parametrage_pcr' =>   $privilege_parametrage_pcr,
         ];
 
         return response()
             ->json(
-                $data,
+                $AllPrivilege,
                 200
             );
     }

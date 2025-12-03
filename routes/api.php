@@ -96,6 +96,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/calculate', [ProformaController::class, 'calculate']);
         Route::get('/history', [ProformaController::class, 'history']);
     });
+    
+    // Récupérer le privilège d'un volet spécifique pour l'utilisateur courant
+    Route::get('/all/privileges', [MainController::class, 'allPrivileges']);
 
     require __DIR__ . '/api_reclamation.php';
 });
