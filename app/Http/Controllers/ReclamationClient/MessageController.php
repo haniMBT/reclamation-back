@@ -452,7 +452,8 @@ class MessageController extends Controller
                 ->first();
 
             if ($destinataire) {
-                $destinataire->update([
+                TRecDestinataireMessage::where('message_id', $messageId)
+                ->where('direction_destinataire', $userDirection)->update([
                     'statut' => 'lu',
                     'lu' => 1,
                     'date_lecture' => now(),
