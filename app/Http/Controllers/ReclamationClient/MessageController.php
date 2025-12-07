@@ -438,22 +438,41 @@ class MessageController extends Controller
     }
 
     /**
-     * Marquer un message comme lu pour une direction
+     * Marquer un message comme lu.
+     * Prend en charge:
+     * - recipient = 'client' pour marquer le destinataire client
+     * - direction explicite via payload ou direction de l'utilisateur
+     * Idempotent: si déjà lu, retourne un succès sans modifier.
      */
     public function markAsRead(Request $request, $messageId)
     {
         try {
             $user = Auth::user();
-            $userDirection = $user->direction;
+            $recipient = $request->input('recipient');
+            $directionParam = $request->input('direction');
+            $userDirection = $user->direction ?? null;
 
-            // Trouver la ligne correspondant à direction_destinataire = direction_user et message_id = id_message
-            $destinataire = TRecDestinataireMessage::where('message_id', $messageId)
-                ->where('direction_destinataire', $userDirection)
-                ->first();
+            // Cas client
+            if ($recipient === 'client') {
+                $dest = TRecDestinataireMessage::where('message_id', $messageId)
+                    ->where('direction_destinataire', 'client')
+                    ->first();
 
-            if ($destinataire) {
-                TRecDestinataireMessage::where('message_id', $messageId)
-                ->where('direction_destinataire', $userDirection)->update([
+                if (!$dest) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Destinataire client non trouvé',
+                    ], 404);
+                }
+
+                if (($dest->statut ?? null) === 'lu' || ($dest->lu ?? 0) == 1 || !empty($dest->date_lecture)) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Déjà marqué comme lu',
+                    ]);
+                }
+
+                TRecDestinataireMessage::where('id', $dest->id)->update([
                     'statut' => 'lu',
                     'lu' => 1,
                     'date_lecture' => now(),
@@ -461,15 +480,47 @@ class MessageController extends Controller
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Message marqué comme lu',
+                    'message' => 'Message client marqué comme lu',
                 ]);
             }
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Destinataire non trouvé',
-            ], 404);
+            // Cas direction: payload ou fallback direction utilisateur
+            $directionToMark = $directionParam ?: $userDirection;
+            if (!$directionToMark) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Aucune direction fournie pour le marquage',
+                ], 422);
+            }
 
+            $dest = TRecDestinataireMessage::where('message_id', $messageId)
+                ->where('direction_destinataire', $directionToMark)
+                ->first();
+
+            if (!$dest) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Destinataire direction non trouvé',
+                ], 404);
+            }
+
+            if (($dest->statut ?? null) === 'lu' || ($dest->lu ?? 0) == 1 || !empty($dest->date_lecture)) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Déjà marqué comme lu',
+                ]);
+            }
+
+            TRecDestinataireMessage::where('id', $dest->id)->update([
+                'statut' => 'lu',
+                'lu' => 1,
+                'date_lecture' => now(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Message direction marqué comme lu',
+            ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
