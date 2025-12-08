@@ -484,6 +484,39 @@ class MessageController extends Controller
                 ]);
             }
 
+             // Cas client
+            if ($recipient === 'directions') {
+                $dest = TRecDestinataireMessage::where('message_id', $messageId)
+                    ->where('direction_destinataire', 'directions')
+                    ->first();
+
+                if (!$dest) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Destinataire directions non trouvé',
+                    ], 404);
+                }
+
+                if (($dest->statut ?? null) === 'lu' || ($dest->lu ?? 0) == 1 || !empty($dest->date_lecture)) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Déjà marqué comme lu',
+                    ]);
+                }
+
+                TRecDestinataireMessage::where('id', $dest->id)->update([
+                    'statut' => 'lu',
+                    'lu' => 1,
+                    'date_lecture' => now(),
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Message directions marqué comme lu',
+                ]);
+            }
+
+
             // Cas direction: payload ou fallback direction utilisateur
             $directionToMark = $directionParam ?: $userDirection;
             if (!$directionToMark) {
