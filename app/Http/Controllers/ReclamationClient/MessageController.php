@@ -451,6 +451,7 @@ class MessageController extends Controller
             $recipient = $request->input('recipient');
             $directionParam = $request->input('direction');
             $userDirection = $user->direction ?? null;
+            $userFullName = trim(($user->Prenom ?? '') . ' ' . ($user->Nom ?? ''));
 
             // Cas client
             if ($recipient === 'client') {
@@ -484,7 +485,7 @@ class MessageController extends Controller
                 ]);
             }
 
-             // Cas client
+            // Cas broadcast 'directions'
             if ($recipient === 'directions') {
                 $dest = TRecDestinataireMessage::where('message_id', $messageId)
                     ->where('direction_destinataire', 'directions')
@@ -516,13 +517,67 @@ class MessageController extends Controller
                 ]);
             }
 
+            // Cas membre de commission (destinataires stockés comme Nom Prénom)
+            if ($recipient === 'member') {
+                $dest = TRecDestinataireMessage::where('message_id', $messageId)
+                    ->whereRaw('LOWER(direction_destinataire) = ?', [strtolower($userFullName)])
+                    ->first();
+
+                if (!$dest) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Destinataire membre non trouvé',
+                    ], 404);
+                }
+
+                if (($dest->statut ?? null) === 'lu' || ($dest->lu ?? 0) == 1 || !empty($dest->date_lecture)) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Déjà marqué comme lu',
+                    ]);
+                }
+
+                TRecDestinataireMessage::where('id', $dest->id)->update([
+                    'statut' => 'lu',
+                    'lu' => 1,
+                    'date_lecture' => now(),
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Message membre marqué comme lu',
+                ]);
+            }
 
             // Cas direction: payload ou fallback direction utilisateur
             $directionToMark = $directionParam ?: $userDirection;
             if (!$directionToMark) {
+                // Fallback: essayer le nom complet de l'utilisateur en tant que destinataire membre
+                $destByName = TRecDestinataireMessage::where('message_id', $messageId)
+                    ->whereRaw('LOWER(direction_destinataire) = ?', [strtolower($userFullName)])
+                    ->first();
+
+                if ($destByName) {
+                    if (($destByName->statut ?? null) === 'lu' || ($destByName->lu ?? 0) == 1 || !empty($destByName->date_lecture)) {
+                        return response()->json([
+                            'success' => true,
+                            'message' => 'Déjà marqué comme lu',
+                        ]);
+                    }
+                    TRecDestinataireMessage::where('id', $destByName->id)->update([
+                        'statut' => 'lu',
+                        'lu' => 1,
+                        'date_lecture' => now(),
+                    ]);
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Message membre (fallback) marqué comme lu',
+                    ]);
+                }
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Aucune direction fournie pour le marquage',
+                    'message' => 'Aucune direction ou membre correspondant pour le marquage',
                 ], 422);
             }
 
