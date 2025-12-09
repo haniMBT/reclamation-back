@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Direction;
 use App\Models\ReclamationClient\BRecTickets;
 use App\Models\ReclamationClient\BRecDefaultDirection;
+use App\Models\ReclamationClient\BRecType;
+use App\Models\ReclamationClient\BRecDetail;
 use App\Models\ReclamationClient\TRecTicket;
 use App\Models\ReclamationClient\BRecInfoGeneral;
 use App\Models\ReclamationClient\BRecTicketFile;
@@ -673,6 +675,160 @@ class ParametrageController extends Controller
 
             return response()->json([
                 'error' => 'Erreur lors de la suppression',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Dupliquer un ticket de base avec ses informations associées
+     * - Infos générales (b_rec_info_general)
+     * - Fichiers demandés (b_rec_ticket_files)
+     * - Types et détails (b_rec_type, b_rec_detail)
+     * - Directions par défaut (b_rec_default_directions)
+     */
+    public function duplicate(int $id, Request $request): JsonResponse
+    {
+        try {
+            $source = BRecTickets::with(['infosGenerales', 'filesDemandes', 'types.details', 'defaultDirections'])
+                ->find($id);
+
+            if (!$source) {
+                return response()->json([
+                    'error' => 'Ticket source introuvable',
+                    'message' => "Le ticket avec l'ID $id n'existe pas."
+                ], 404);
+            }
+
+            $validator = Validator::make($request->all(), [
+                'libelle' => 'nullable|string|max:255',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'error' => 'Erreur de validation',
+                    'messages' => $validator->errors()
+                ], 422);
+            }
+
+            return DB::transaction(function () use ($request, $source) {
+                // Créer le nouveau ticket à partir de la source
+                $newTicket = BRecTickets::create([
+                    'libelle' => $request->libelle ?? ($source->libelle . ' (Copie)'),
+                    'direction' => $source->direction,
+                    'definition' => $source->definition,
+                    'documentAfornir' => $source->documentAfornir,
+                    // ne pas activer par défaut
+                    'is_active' => false,
+                ]);
+
+                // Dupliquer les infos générales
+                foreach ($source->infosGenerales as $info) {
+                    BRecInfoGeneral::create([
+                        'bticket_id' => $newTicket->id,
+                        'libelle' => $info->libelle,
+                        // champ existant avec faute de frappe dans le modèle
+                        'key_attirubut' => (bool) ($info->key_attirubut ?? false),
+                        'obligatoire' => (bool) ($info->obligatoire ?? false),
+                        'type' => $info->type,
+                    ]);
+                }
+
+                // Dupliquer les fichiers demandés
+                foreach ($source->filesDemandes as $file) {
+                    BRecTicketFile::create([
+                        'bticket_id' => $newTicket->id,
+                        'libelle' => $file->libelle,
+                        'obligatoire' => (bool) ($file->obligatoire ?? false),
+                        'format_fichier' => $file->format_fichier,
+                    ]);
+                }
+
+                // Dupliquer les types et leurs détails
+                foreach ($source->types as $type) {
+                    $newType = BRecType::create([
+                        'id_btickes' => $newTicket->id,
+                        'libelle' => $type->libelle,
+                        'direction' => $type->direction,
+                        'statut_direction' => $type->statut_direction,
+                        'position' => $type->position,
+                    ]);
+
+                    foreach ($type->details as $detail) {
+                        BRecDetail::create([
+                            'id_btype' => $newType->id,
+                            'libelle' => $detail->libelle,
+                            'direction' => $detail->direction,
+                            'statut_direction' => $detail->statut_direction,
+                        ]);
+                    }
+                }
+
+                // Dupliquer les directions par défaut
+                foreach ($source->defaultDirections as $d) {
+                    BRecDefaultDirection::create([
+                        'bticket_id' => $newTicket->id,
+                        'direction' => $d->direction,
+                        'statut_direction' => $d->statut_direction,
+                    ]);
+                }
+
+                $newTicket->load(['infosGenerales','filesDemandes','types.details','defaultDirections']);
+
+                return response()->json([
+                    'message' => 'Ticket dupliqué avec succès',
+                    'ticket' => [
+                        'id' => $newTicket->id,
+                        'libelle' => $newTicket->libelle,
+                        'direction' => $newTicket->direction,
+                        'definition' => $newTicket->definition,
+                        'is_active' => $newTicket->is_active,
+                        'infos_generales' => $newTicket->infosGenerales->map(function ($info) {
+                            return [
+                                'id' => $info->id,
+                                'libelle' => $info->libelle,
+                                'key_attribut' => (bool) ($info->key_attirubut ?? false),
+                                'obligatoire' => (bool) ($info->obligatoire ?? false),
+                                'type' => $info->type,
+                            ];
+                        }),
+                        'files_demandes' => $newTicket->filesDemandes->map(function ($file) {
+                            return [
+                                'id' => $file->id,
+                                'libelle' => $file->libelle,
+                                'obligatoire' => (bool) ($file->obligatoire ?? false),
+                                'format' => $file->format_fichier,
+                            ];
+                        }),
+                        'types' => $newTicket->types->map(function ($type) {
+                            return [
+                                'id' => $type->id,
+                                'libelle' => $type->libelle,
+                                'direction' => $type->direction,
+                                'statut_direction' => $type->statut_direction,
+                                'details' => $type->details->map(function ($detail) {
+                                    return [
+                                        'id' => $detail->id,
+                                        'libelle' => $detail->libelle,
+                                        'direction' => $detail->direction,
+                                        'statut_direction' => $detail->statut_direction,
+                                    ];
+                                })
+                            ];
+                        }),
+                        'default_directions' => $newTicket->defaultDirections->map(function ($d) {
+                            return [
+                                'id' => $d->id,
+                                'direction' => $d->direction,
+                                'statut_direction' => $d->statut_direction,
+                            ];
+                        })
+                    ]
+                ], 201);
+            });
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Erreur lors de la duplication',
                 'message' => $e->getMessage()
             ], 500);
         }
