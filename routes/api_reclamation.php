@@ -84,6 +84,8 @@ Route::post('rec/tickets/{ticketId}/directions/self/delete', [DirectionControlle
 
     // Routes pour les messages
 Route::get('rec/tickets/{ticketId}/messages', [MessageController::class, 'index'])->name('messages.index');
+// Endpoint combiné: messages + directions pour un ticket
+Route::get('rec/tickets/{ticketId}/messages-directions', [MessageController::class, 'indexWithDirections'])->name('messages.indexWithDirections');
 Route::post('rec/tickets/{ticketId}/messages', [MessageController::class, 'store'])->name('messages.store');
 Route::post('rec/tickets/{ticketId}/messages/reply', [MessageController::class, 'reply'])->name('messages.reply');
 Route::post('rec/tickets/{ticketId}/messages/recour', [MessageController::class, 'recour'])->name('messages.recour');

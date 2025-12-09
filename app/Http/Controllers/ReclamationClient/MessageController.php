@@ -8,6 +8,7 @@ use App\Models\ReclamationClient\TRecTicketDirection;
 use App\Models\ReclamationClient\TRecDestinataireMessage;
 use App\Models\ReclamationClient\TRecFicherMessage;
 use App\Models\ReclamationClient\TRecTicket;
+use App\Models\Direction;
 use App\Services\ReclamationClient\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -137,6 +138,142 @@ class MessageController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la récupération des messages: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Récupérer les messages d'un ticket ET les directions liées en un seul appel.
+     */
+    public function indexWithDirections($ticketId)
+    {
+        try {
+            // Réutiliser la logique de index pour construire messages + métadonnées
+            $privilege = Auth::user()->scopePrivileges('message');
+
+            $ticket = TRecTicket::with(['user', 'files' => function ($q) { $q->where('mode', 'conclusion'); }])->find($ticketId);
+            if (!$ticket) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Ticket introuvable'
+                ], 404);
+            }
+
+            $ticket->user_crateur = $ticket->user()->first();
+            $ticket->privilege_crateur =  DB::table('p_privileges')->join('p_profils', 'p_profils.code', 'p_privileges.profil_code')
+                ->where('p_profils.code', $ticket->user_crateur->privilege)->where('volet','message')
+                ->select('p_privileges.*')->first();
+
+            $currentUserId = Auth::id();
+            $creatorInfo = null;
+            if ($ticket->user_id !== $currentUserId && $ticket->user) {
+                $creatorInfo = [
+                    'nom' => $ticket->user->Nom ?? $ticket->nom,
+                    'prenom' => $ticket->user->Prenom ?? $ticket->prenom,
+                    'nom_complet' => trim(($ticket->user->Prenom ?? $ticket->prenom) . ' ' . ($ticket->user->Nom ?? $ticket->nom))
+                ];
+            }
+
+            $ticket->ticket_direction_crateur = TRecTicketDirection::where('tticket_id', $ticketId)
+                ->where('direction', $ticket->user_crateur->direction)
+                ->first();
+
+            if ($ticket && $ticket->status == 'En attente') {
+                $updateData = ['status' => 'En cours'];
+                if (is_null($ticket->date_en_cours)) {
+                    $updateData['date_en_cours'] = now();
+                }
+                $ticket->where('user_id','!=', Auth::id())->where('id',$ticketId)->update($updateData);
+            }
+
+            if ($privilege->role == 'employe_Répondeur') {
+                $ticket_direction = TRecTicketDirection::where('tticket_id', $ticketId)
+                    ->where('direction', auth::user()->direction)
+                    ->first();
+            } else {
+                $ticket_direction = null;
+            }
+
+            $messagesQuery = TRecMessage::with('fichiers')->where('tticket_id', $ticketId);
+            if ($ticket->user_id == Auth::id()) {
+                if ($privilege->role == 'employe_Répondeur') {
+                    if ($ticket_direction!=null && $ticket_direction->direction == Auth::user()->direction) {
+                        $messagesQuery->with('destinataires');
+                    } else {
+                        $messagesQuery->whereHas('destinataires', function ($q) {
+                            $q->where('direction_destinataire', 'client')
+                              ->orWhere('direction_destinataire', 'directions');
+                        })->with(['destinataires' => function ($q) {
+                            $q->where('direction_destinataire', 'client')
+                              ->orWhere('direction_destinataire', 'directions');
+                        }]);
+                    }
+                } else {
+                    $messagesQuery->whereHas('destinataires', function ($q) {
+                        $q->where('direction_destinataire', 'client')
+                          ->orWhere('direction_destinataire', 'directions');
+                    })->with(['destinataires' => function ($q) {
+                        $q->where('direction_destinataire', 'client')
+                          ->orWhere('direction_destinataire', 'directions');
+                    }]);
+                }
+            } else {
+                $messagesQuery->with('destinataires');
+            }
+
+            $messages = $messagesQuery->orderBy('date_envoie', 'desc')->get();
+
+            // Commission flags
+            $isCommissionMember = \App\Models\ReclamationClient\TRecCommissionRecours::where('user_id', Auth::id())->exists();
+            $isPresidentCommission = \App\Models\ReclamationClient\TRecCommissionRecours::where('user_id', Auth::id())->where('role', 'président')->exists();
+            $commissionMembers = \App\Models\ReclamationClient\TRecCommissionRecours::select('user_id','nom','prenom','email','matricule','direction','role')
+                ->orderByDesc(DB::raw("role = 'président'"))
+                ->get();
+
+            // Directions liées au ticket (même structure que DirectionController::index)
+            $directions = Direction::select(
+                    'NUMDIR as id',
+                    'direction.DIRECTION as label',
+                    'direction.DIRECTION as value',
+                    't_rec_ticket_direction.type_orientation as type_orientation',
+                    't_rec_ticket_direction.statut_direction as statut_direction'
+                )
+                ->orderBy('direction.DIRECTION', 'asc')
+                ->join('t_rec_ticket_direction', 'direction.DIRECTION', '=', 't_rec_ticket_direction.direction')
+                ->where('t_rec_ticket_direction.tticket_id', $ticketId)
+                ->get();
+
+            $directionsNonConcerne = Direction::select(
+                    'NUMDIR as id',
+                    'direction.DIRECTION as label',
+                    'direction.DIRECTION as value'
+                )
+                ->whereNotIn('direction.DIRECTION', function ($q) use ($ticketId) {
+                    $q->select('t_rec_ticket_direction.direction')
+                      ->from('t_rec_ticket_direction')
+                      ->where('t_rec_ticket_direction.tticket_id', $ticketId)
+                      ->whereNotNull('t_rec_ticket_direction.direction');
+                })
+                ->orderBy('direction.DIRECTION', 'asc')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'messages' => $messages,
+                'privilege' => $privilege,
+                'ticket' => $ticket,
+                'ticket_direction' => $ticket_direction,
+                'createur' => $creatorInfo,
+                'is_commission_member' => $isCommissionMember,
+                'is_commission_president' => $isPresidentCommission,
+                'commission_recours' => $commissionMembers,
+                'directions' => $directions,
+                'directionsNonConcerne' => $directionsNonConcerne,
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des messages et directions: ' . $e->getMessage()
             ], 500);
         }
     }
