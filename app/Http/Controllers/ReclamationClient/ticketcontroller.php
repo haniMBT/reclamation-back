@@ -98,9 +98,15 @@ class TicketController extends Controller
             $search = $request->get('q', '');
             $direction = $request->get('direction', '');
             $status = $request->get('status', '');
+            $statuses = $request->get('statuses', ''); // liste de statuts (séparée par des virgules)
             $dateFrom = $request->get('date_from', '');
             $dateTo = $request->get('date_to', '');
             $typeId = $request->get('type_id', '');
+            $objet = $request->get('objet', '');
+            $nom = $request->get('nom', '');
+            $prenom = $request->get('prenom', '');
+            $onlyActiveBase = $request->boolean('only_active_base', false);
+            $bticketId = $request->get('bticket_id', '');
 
                // Privilege
             if (!empty($privilege)) {
@@ -113,27 +119,24 @@ class TicketController extends Controller
                 ]);
 
 
-                if ($privilege->role == 'employe_Répondeur') {
-                //    if(Auth::user()->direction == 'CAB'){
-                        $tticket_ids = TRecTicketDirection::where('direction', Auth::user()->direction)
-                        ->pluck('tticket_id');
-                        $query->where(function ($q) use ($tticket_ids) {
-                            $q->whereIn('t_rec_tickets.id', $tticket_ids)
-                            ->orWhere('t_rec_tickets.user_id', Auth::id());
-                        });
-                    // }
-                }else{ // esq tous les utilisateur en le droit de cree une reclamaation ou non
-                    $query->where('t_rec_tickets.user_id', Auth::id());
-                }
-
-                // // Logique complémentaire: membres de la commission de recours
+                // Regrouper la portée utilisateur et la visibilité commission pour éviter A OR (B AND C)
                 $isCommissionMember = TRecCommissionRecours::where('user_id', Auth::id())->exists();
-                if ($isCommissionMember) {
-                    // Étendre la visibilité: inclure les tickets en recours ou recours clôturé
-                    $query->orWhere(function ($q) {
-                        $q->whereIn('t_rec_tickets.status', ['Recours', 'Recours clôturé']);
-                    });
+                $tticket_ids = collect();
+                if ($privilege->role == 'employe_Répondeur') {
+                    $tticket_ids = TRecTicketDirection::where('direction', Auth::user()->direction)
+                        ->pluck('tticket_id');
                 }
+                $query->where(function ($q) use ($privilege, $tticket_ids, $isCommissionMember) {
+                    if ($privilege->role == 'employe_Répondeur') {
+                        $q->whereIn('t_rec_tickets.id', $tticket_ids)
+                          ->orWhere('t_rec_tickets.user_id', Auth::id());
+                    } else {
+                        $q->where('t_rec_tickets.user_id', Auth::id());
+                    }
+                    if ($isCommissionMember) {
+                        $q->orWhereIn('t_rec_tickets.status', ['Recours', 'Recours clôturé']);
+                    }
+                });
 
 
             // Filtrage par recherche globale
@@ -141,11 +144,28 @@ class TicketController extends Controller
                 $query->where(function ($q) use ($search) {
                     $q->where('description', 'like', '%' . $search . '%')
                       ->orWhere('objet', 'like', '%' . $search . '%')
+                      ->orWhere('nom', 'like', '%' . $search . '%')
+                      ->orWhere('prenom', 'like', '%' . $search . '%')
                       ->orWhereHas('baseTicket', function ($subQ) use ($search) {
                           $subQ->where('libelle', 'like', '%' . $search . '%')
                                ->orWhere('direction', 'like', '%' . $search . '%');
                       });
                 });
+            }
+
+            // Filtrage par objet
+            if (!empty($objet)) {
+                $query->where('objet', 'like', '%' . $objet . '%');
+            }
+
+            // Filtrage par nom
+            if (!empty($nom)) {
+                $query->where('nom', 'like', '%' . $nom . '%');
+            }
+
+            // Filtrage par prénom
+            if (!empty($prenom)) {
+                $query->where('prenom', 'like', '%' . $prenom . '%');
             }
 
             // Filtrage par direction
@@ -158,6 +178,14 @@ class TicketController extends Controller
             // Filtrage par statut (si applicable)
             if (!empty($status)) {
                 $query->where('status', $status);
+            }
+
+            // Filtrage par liste de statuts
+            if (!empty($statuses)) {
+                $statusList = array_filter(array_map('trim', explode(',', $statuses)));
+                if (!empty($statusList)) {
+                    $query->whereIn('status', $statusList);
+                }
             }
 
             // Filtrage par date de création
@@ -173,6 +201,18 @@ class TicketController extends Controller
                 $query->whereHas('types', function ($q) use ($typeId) {
                     $q->where('b_rec_type_id', $typeId);
                 });
+            }
+
+            // Filtre: ne retenir que les tickets dont le ticket de base (b_rec_tickets) est actif
+            if ($onlyActiveBase) {
+                $query->whereHas('baseTicket', function ($q) {
+                    $q->where('is_active', true);
+                });
+            }
+
+            // Filtre: par ticket de base (libellé via select côté front)
+            if (!empty($bticketId)) {
+                $query->where('bticket_id', (int) $bticketId);
             }
 
             // Pagination avec tri
@@ -253,6 +293,13 @@ class TicketController extends Controller
                 ];
             });
 
+            // Liste des statuts disponibles dans le périmètre (utile pour le filtrage dynamique côté front)
+            $availableStatuses = TRecTicket::select('status')
+                ->distinct()
+                ->pluck('status')
+                ->filter()
+                ->values();
+
             return response()->json([
                 'success' => true,
                 'message' => 'Tickets récupérés avec succès',
@@ -260,6 +307,7 @@ class TicketController extends Controller
                     'privilege' => $privilege,
                     'is_commission_member' => isset($isCommissionMember) ? $isCommissionMember : false,
                     'items' => $formattedTickets,
+                    'available_statuses' => $availableStatuses,
                     'meta' => [
                         'current_page' => $tickets->currentPage(),
                         'per_page' => $tickets->perPage(),
