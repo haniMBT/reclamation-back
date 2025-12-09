@@ -97,15 +97,11 @@ class TicketController extends Controller
             $page = $request->get('page', 1);
             $search = $request->get('q', '');
             $direction = $request->get('direction', '');
-            $status = $request->get('status', '');
             $statuses = $request->get('statuses', ''); // liste de statuts (séparée par des virgules)
             $dateFrom = $request->get('date_from', '');
             $dateTo = $request->get('date_to', '');
             $typeId = $request->get('type_id', '');
-            $objet = $request->get('objet', '');
-            $nom = $request->get('nom', '');
-            $prenom = $request->get('prenom', '');
-            $onlyActiveBase = $request->boolean('only_active_base', false);
+            // filtres spécifiques supprimés (objet, nom, prénom, only_active_base, status unique)
             $bticketId = $request->get('bticket_id', '');
 
                // Privilege
@@ -153,31 +149,12 @@ class TicketController extends Controller
                 });
             }
 
-            // Filtrage par objet
-            if (!empty($objet)) {
-                $query->where('objet', 'like', '%' . $objet . '%');
-            }
-
-            // Filtrage par nom
-            if (!empty($nom)) {
-                $query->where('nom', 'like', '%' . $nom . '%');
-            }
-
-            // Filtrage par prénom
-            if (!empty($prenom)) {
-                $query->where('prenom', 'like', '%' . $prenom . '%');
-            }
 
             // Filtrage par direction
             if (!empty($direction)) {
                 $query->whereHas('baseTicket', function ($q) use ($direction) {
                     $q->where('direction', $direction);
                 });
-            }
-
-            // Filtrage par statut (si applicable)
-            if (!empty($status)) {
-                $query->where('status', $status);
             }
 
             // Filtrage par liste de statuts
@@ -200,13 +177,6 @@ class TicketController extends Controller
             if (!empty($typeId)) {
                 $query->whereHas('types', function ($q) use ($typeId) {
                     $q->where('b_rec_type_id', $typeId);
-                });
-            }
-
-            // Filtre: ne retenir que les tickets dont le ticket de base (b_rec_tickets) est actif
-            if ($onlyActiveBase) {
-                $query->whereHas('baseTicket', function ($q) {
-                    $q->where('is_active', true);
                 });
             }
 
