@@ -751,7 +751,7 @@ class ParametrageController extends Controller
                         'libelle' => $type->libelle,
                         'direction' => $type->direction,
                         'statut_direction' => $type->statut_direction,
-                        'position' => $type->position,
+                        // 'position' => $type->position,
                     ]);
 
                     foreach ($type->details as $detail) {
