@@ -22,19 +22,7 @@ use Illuminate\Support\Facades\Route;
 
 // Routes protégées pour les réclamations
 Route::middleware(['auth:sanctum', 'check.token.expiration'])->group(function () {
-    Route::get('/reclamations', [ReclamationController::class, 'index'])->name('reclamation.index');
-    Route::get('/reclamations/all', [ReclamationController::class, 'indexAll'])->name('reclamation.indexAll');
-    Route::post('/reclamation', [ReclamationController::class, 'store'])->name('reclamation.store');
-    Route::put('/reclamation/{id}', [ReclamationController::class, 'update']); // API update
-    Route::get('/reclamation/{id}', [ReclamationController::class, 'show'])->name('reclamation.show');
-    Route::get('/reclamation/{reclamationId}/fichier/{fichierId}/download', [ReclamationController::class, 'downloadFile'])->name('reclamation.download');
-    Route::get('/reclamation/{reclamationId}/fichier/{fichierId}/delete', [ReclamationController::class, 'deleteFile'])->name('reclamation.delete');
 
-    // Routes pour la gestion des natures et sous-natures
-    Route::get('/nature', [NatureController::class, 'index'])->name('nature.index');
-    Route::post('/nature', [NatureController::class, 'store'])->name('nature.store');
-    Route::put('/nature/{id}', [NatureController::class, 'update'])->name('nature.update');
-    Route::delete('/nature/{id}', [NatureController::class, 'destroy'])->name('nature.destroy');
 
     // Routes pour le paramétrage
     Route::get('rec/parametrage', [ParametrageController::class, 'index'])->name('parametrage.index');
@@ -101,4 +89,7 @@ Route::get('rec/messages/attachments/{id}/download', [MessageController::class, 
     Route::get('rec/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::put('rec/notifications/{id}/mark-as-read', [NotificationController::class, 'markAsRead'])->name('notifications.markAsRead');
     Route::put('rec/notifications/mark-all-as-read', [NotificationController::class, 'markAllAsRead'])->name('notifications.markAllAsRead');
+
+Route::get('rec/dashboard/timeline', [\App\Http\Controllers\ReclamationClient\DashboardController::class, 'timelineData'])->name('rec.dashboard.timeline');
+
 });
