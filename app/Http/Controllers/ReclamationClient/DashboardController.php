@@ -32,7 +32,7 @@ class DashboardController extends Controller
             $items = collect();
 
             if (!empty($privilege)) {
-                $query = TRecTicket::with(['baseTicket']);
+                $query = TRecTicket::with(['baseTicket','user']);
 
                 // Visibilité commission de recours
                 $isCommissionMember = TRecCommissionRecours::where('user_id', Auth::id())->exists();
@@ -72,6 +72,17 @@ class DashboardController extends Controller
                 // Mapping pour la timeline
                 $items = $tickets->map(function ($ticket) {
                     $baseTicket = $ticket->baseTicket;
+                    $user = $ticket->user; // relation chargée
+                    $ownerDisplay = null;
+                    if ($user) {
+                        // Si l’utilisateur a une direction, l’afficher, sinon Nom Prénom
+                        $dir = trim((string) ($user->direction ?? ''));
+                        if ($dir !== '') {
+                            $ownerDisplay = $dir;
+                        } else {
+                            $ownerDisplay = trim(((string) ($user->Prenom ?? '')) . ' ' . ((string) ($user->Nom ?? '')));
+                        }
+                    }
                     return [
                         'id' => $ticket->id,
                         'bticket_id' => $ticket->bticket_id,
@@ -84,6 +95,8 @@ class DashboardController extends Controller
                         'date_cloture_recours' => $ticket->date_cloture_recours,
                         // compatibilité pour filtrage client-side éventuel
                         'type_name' => $baseTicket ? $baseTicket->libelle : null,
+                        // affichage demandé: direction si existe sinon Nom Prénom
+                        'owner_display' => $ownerDisplay,
                     ];
                 });
             }
