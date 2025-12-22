@@ -28,6 +28,19 @@ class DashboardController extends Controller
             $dateFrom = $request->get('date_from');
             $dateTo = $request->get('date_to');
             $bticketId = $request->get('bticket_id');
+            $bticketIds = $request->get('bticket_ids');
+            // Normaliser bticket_ids: accepter CSV ou tableau
+            if (is_string($bticketIds)) {
+                $bticketIds = array_filter(array_map('intval', explode(',', $bticketIds)));
+            }
+            if (!is_array($bticketIds)) {
+                $bticketIds = [];
+            }
+            // Compatibilité: si bticket_id fourni et pas de bticket_ids, l’ajouter
+            if (!empty($bticketId) && empty($bticketIds)) {
+                $bticketIds = [(int) $bticketId];
+            }
+
             $statuses = $request->get('statuses');
             if (is_string($statuses)) {
                 $statuses = array_filter(array_map('trim', explode(',', $statuses)));
@@ -70,9 +83,13 @@ class DashboardController extends Controller
                 if (!empty($dateTo)) {
                     $query->whereDate('created_at', '<=', $dateTo);
                 }
-                if (!empty($bticketId)) {
+                // Filtre par types de réclamation (b_rec_ticket)
+                if (!empty($bticketIds)) {
+                    $query->whereIn('bticket_id', $bticketIds);
+                } elseif (!empty($bticketId)) {
                     $query->where('bticket_id', (int) $bticketId);
                 }
+                // Filtre par statuts
                 if (!empty($statuses)) {
                     $query->whereIn('status', $statuses);
                 }
