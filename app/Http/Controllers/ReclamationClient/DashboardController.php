@@ -28,6 +28,13 @@ class DashboardController extends Controller
             $dateFrom = $request->get('date_from');
             $dateTo = $request->get('date_to');
             $bticketId = $request->get('bticket_id');
+            $statuses = $request->get('statuses');
+            if (is_string($statuses)) {
+                $statuses = array_filter(array_map('trim', explode(',', $statuses)));
+            }
+            if (!is_array($statuses)) {
+                $statuses = [];
+            }
 
             $items = collect();
 
@@ -66,6 +73,9 @@ class DashboardController extends Controller
                 if (!empty($bticketId)) {
                     $query->where('bticket_id', (int) $bticketId);
                 }
+                if (!empty($statuses)) {
+                    $query->whereIn('status', $statuses);
+                }
 
                 $tickets = $query->orderBy('created_at', 'desc')->get();
 
@@ -87,6 +97,7 @@ class DashboardController extends Controller
                         'id' => $ticket->id,
                         'bticket_id' => $ticket->bticket_id,
                         'libelle' => $baseTicket ? $baseTicket->libelle : null,
+                        'status' => $ticket->status,
                         'created_at' => $ticket->created_at,
                         'date_validation_createur' => $ticket->date_validation_createur,
                         'date_en_cours' => $ticket->date_en_cours,
