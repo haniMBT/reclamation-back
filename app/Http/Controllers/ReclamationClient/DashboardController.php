@@ -113,6 +113,11 @@ class DashboardController extends Controller
 
                 // Mapping pour la timeline
                 $items = $tickets->map(function ($ticket) use ($directionsByTicket, $commissionMembers, $commissionPresident) {
+                    // Règle métier obligatoire: si date_validation est NULL -> ne pas afficher la réclamation
+                    if (empty($ticket->date_validation_createur)) {
+                        return null;
+                    }
+
                     $baseTicket = $ticket->baseTicket;
                     $user = $ticket->user; // relation chargée
                     $ownerDisplay = null;
@@ -162,6 +167,35 @@ class DashboardController extends Controller
                         return $label;
                     })->filter()->values()->all();
 
+                    // Segments prêts à afficher pour Apache ECharts (frontend ne recalcule pas)
+                    $now = now();
+                    $segments = [];
+                    $created = $ticket->created_at;
+                    $validated = $ticket->date_validation_createur;
+                    $enCours = $ticket->date_en_cours;
+                    $closed = $ticket->closed_at;
+                    $recours = $ticket->date_recours;
+                    $recoursClosed = $ticket->date_cloture_recours;
+
+                    if (!empty($created) && !empty($validated) && $validated >= $created) {
+                        $segments[] = [ 'status' => 'Ouvert', 'start' => $created, 'end' => $validated ];
+                    }
+                    if (!empty($validated)) {
+                        $segments[] = [ 'status' => 'En attente', 'start' => $validated, 'end' => (!empty($enCours) ? $enCours : $now) ];
+                    }
+                    if (!empty($enCours)) {
+                        $segments[] = [ 'status' => 'En cours', 'start' => $enCours, 'end' => (!empty($closed) ? $closed : $now) ];
+                    }
+                    if (!empty($closed)) {
+                        $segments[] = [ 'status' => 'Clôturé', 'start' => $closed, 'end' => (!empty($recours) ? $recours : $closed) ];
+                    }
+                    if (!empty($recours)) {
+                        $segments[] = [ 'status' => 'Recours', 'start' => $recours, 'end' => (!empty($recoursClosed) ? $recoursClosed : $now) ];
+                    }
+                    if (!empty($recoursClosed)) {
+                        $segments[] = [ 'status' => 'Recours clôturé', 'start' => $recoursClosed, 'end' => $recoursClosed ];
+                    }
+
                     return [
                         'id' => $ticket->id,
                         'bticket_id' => $ticket->bticket_id,
@@ -173,7 +207,7 @@ class DashboardController extends Controller
                         'closed_at' => $ticket->closed_at,
                         'date_recours' => $ticket->date_recours,
                         'date_cloture_recours' => $ticket->date_cloture_recours,
-                        'objet' => $ticket->objet, // <- ajout pour tooltip
+                        'objet' => $ticket->objet, // pour tooltip
                         // compatibilité pour filtrage client-side éventuel
                         'type_name' => $baseTicket ? $baseTicket->libelle : null,
                         // affichage demandé: direction si existe sinon Nom Prénom
@@ -184,8 +218,10 @@ class DashboardController extends Controller
                         'consultation_directions' => $consultationDirections,
                         'recours_pilot' => $recoursPilot,
                         'recours_commission' => $recoursCommission,
+                        // segments prêts pour ECharts
+                        'segments' => $segments,
                     ];
-                });
+                })->filter()->values();
             }
 
             // Base tickets (types de réclamation)
