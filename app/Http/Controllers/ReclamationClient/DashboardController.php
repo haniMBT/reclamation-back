@@ -96,8 +96,23 @@ class DashboardController extends Controller
 
                 $tickets = $query->orderBy('created_at', 'desc')->get();
 
+                // Précharger les orientations de directions pour tous les tickets en une seule requête
+                $ticketIds = $tickets->pluck('id')->all();
+                $directionsByTicket = collect();
+                if (!empty($ticketIds)) {
+                    $directionsByTicket = TRecTicketDirection::whereIn('tticket_id', $ticketIds)
+                        ->get()
+                        ->groupBy('tticket_id');
+                }
+
+                // Charger la composition de la commission de recours (président et membres)
+                $commissionMembers = TRecCommissionRecours::select('user_id','nom','prenom','direction','role')->get();
+                $commissionPresident = $commissionMembers->first(function ($m) {
+                    return strtolower(trim((string)$m->role)) === 'président';
+                });
+
                 // Mapping pour la timeline
-                $items = $tickets->map(function ($ticket) {
+                $items = $tickets->map(function ($ticket) use ($directionsByTicket, $commissionMembers, $commissionPresident) {
                     $baseTicket = $ticket->baseTicket;
                     $user = $ticket->user; // relation chargée
                     $ownerDisplay = null;
@@ -110,6 +125,43 @@ class DashboardController extends Controller
                             $ownerDisplay = trim(((string) ($user->Prenom ?? '')) . ' ' . ((string) ($user->Nom ?? '')));
                         }
                     }
+
+                    // Acteurs par ticket
+                    $dirs = $directionsByTicket->get($ticket->id, collect());
+                    $pilotDirection = null;
+                    $treatmentDirections = [];
+                    $consultationDirections = [];
+
+                    if ($dirs && $dirs->count() > 0) {
+                        $pilot = $dirs->first(function ($d) { return ($d->type_orientation ?? null) === 'ticket'; });
+                        $pilotDirection = $pilot ? ($pilot->direction ?? null) : null;
+                        $treatmentDirections = $dirs->filter(function ($d) { return ($d->statut_direction ?? null) === 'traitement'; })
+                            ->pluck('direction')->filter()->unique()->values()->all();
+                        $consultationDirections = $dirs->filter(function ($d) { return ($d->statut_direction ?? null) === 'consultation'; })
+                            ->pluck('direction')->filter()->unique()->values()->all();
+                    }
+
+                    // Acteurs en cas de recours
+                    $recoursPilot = null;
+                    if ($commissionPresident) {
+                        $presName = trim(((string)($commissionPresident->prenom ?? '')) . ' ' . ((string)($commissionPresident->nom ?? '')));
+                        $presDir = trim((string)($commissionPresident->direction ?? ''));
+                        $recoursPilot = $presName !== ''
+                            ? ($presDir !== '' ? ($presName . ' (' . $presDir . ')') : $presName)
+                            : ($presDir !== '' ? $presDir : null);
+                    }
+                    $recoursCommission = $commissionMembers->map(function ($m) {
+                        $name = trim(((string)($m->prenom ?? '')) . ' ' . ((string)($m->nom ?? '')));
+                        $role = trim((string)($m->role ?? ''));
+                        $dir = trim((string)($m->direction ?? ''));
+                        $parts = [];
+                        if ($name !== '') { $parts[] = $name; }
+                        if ($role !== '') { $parts[] = $role; }
+                        $label = implode(' — ', $parts);
+                        if ($dir !== '') { $label = $label !== '' ? ($label . ' (' . $dir . ')') : $dir; }
+                        return $label;
+                    })->filter()->values()->all();
+
                     return [
                         'id' => $ticket->id,
                         'bticket_id' => $ticket->bticket_id,
@@ -126,6 +178,12 @@ class DashboardController extends Controller
                         'type_name' => $baseTicket ? $baseTicket->libelle : null,
                         // affichage demandé: direction si existe sinon Nom Prénom
                         'owner_display' => $ownerDisplay,
+                        // acteurs
+                        'pilot_direction' => $pilotDirection,
+                        'treatment_directions' => $treatmentDirections,
+                        'consultation_directions' => $consultationDirections,
+                        'recours_pilot' => $recoursPilot,
+                        'recours_commission' => $recoursCommission,
                     ];
                 });
             }
