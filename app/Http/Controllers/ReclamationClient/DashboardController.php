@@ -121,6 +121,7 @@ class DashboardController extends Controller
                         'closed_at' => $ticket->closed_at,
                         'date_recours' => $ticket->date_recours,
                         'date_cloture_recours' => $ticket->date_cloture_recours,
+                        'objet' => $ticket->objet, // <- ajout pour tooltip
                         // compatibilité pour filtrage client-side éventuel
                         'type_name' => $baseTicket ? $baseTicket->libelle : null,
                         // affichage demandé: direction si existe sinon Nom Prénom
