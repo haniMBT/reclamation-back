@@ -122,17 +122,21 @@ class TicketController extends Controller
                     $tticket_ids = TRecTicketDirection::where('direction', Auth::user()->direction)
                         ->pluck('tticket_id');
                 }
-                $query->where(function ($q) use ($privilege, $tticket_ids, $isCommissionMember) {
-                    if ($privilege->role == 'employe_Répondeur') {
-                        $q->whereIn('t_rec_tickets.id', $tticket_ids)
-                          ->orWhere('t_rec_tickets.user_id', Auth::id());
-                    } else {
-                        $q->where('t_rec_tickets.user_id', Auth::id());
-                    }
-                    if ($isCommissionMember) {
-                        $q->orWhereIn('t_rec_tickets.status', ['Recours', 'Recours clôturé']);
-                    }
-                });
+                if ($privilege->role != 'Admin') {
+                    $query->where(function ($q) use ($privilege, $tticket_ids, $isCommissionMember) {
+
+                            if ($privilege->role == 'employe_Répondeur') {
+                                $q->whereIn('t_rec_tickets.id', $tticket_ids)
+                                ->orWhere('t_rec_tickets.user_id', Auth::id());
+                            } else {
+                                $q->where('t_rec_tickets.user_id', Auth::id());
+                            }
+
+                        if ($isCommissionMember) {
+                            $q->orWhereIn('t_rec_tickets.status', ['Recours', 'Recours clôturé']);
+                        }
+                    });
+                 }
 
 
             // Filtrage par recherche globale
