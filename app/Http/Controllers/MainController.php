@@ -132,11 +132,15 @@ class MainController extends Controller
         $privilege_parametrage = Auth::user()->scopePrivileges('parametrage');
         $privilege_liste_des_reclamations = Auth::user()->scopePrivileges('liste_des_reclamations');
         $privilege_parametrage_pcr = Auth::user()->scopePrivileges('parametrage_pcr');
+        $privilege_dasboard_détaillé = Auth::user()->scopePrivileges('dasboard_détaillé');
+        $privilege_dasboard_global = Auth::user()->scopePrivileges('dasboard_global');
 
         $AllPrivilege = [
             'privilege_parametrage' =>   $privilege_parametrage,
             'privilege_liste_des_reclamations' =>   $privilege_liste_des_reclamations,
             'privilege_parametrage_pcr' =>   $privilege_parametrage_pcr,
+            'privilege_dasboard_détaillé' => $privilege_dasboard_détaillé,
+            'privilege_dasboard_global' => $privilege_dasboard_global,
         ];
 
         return response()
