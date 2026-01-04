@@ -94,6 +94,12 @@ class DashboardController extends Controller
                     $query->whereIn('status', $statuses);
                 }
 
+                // Exclusion des statuts clôturés si la source est 'timeline'
+                // car la timeline ne doit afficher que les tickets actifs ou en cours
+                if ($request->get('source') === 'timeline') {
+                    $query->whereNotIn('status', ['clôturé', 'Recours clôturé']);
+                }
+
                 $tickets = $query->orderBy('created_at', 'desc')->get();
 
                 // Précharger les orientations de directions pour tous les tickets en une seule requête
