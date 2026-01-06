@@ -94,13 +94,51 @@ class DashboardController extends Controller
                     $query->whereIn('status', $statuses);
                 }
 
+                // Règle métier: ne prendre que les tickets validés par le créateur
+                $query->whereNotNull('date_validation_createur');
+
                 // Exclusion des statuts clôturés si la source est 'timeline'
                 // car la timeline ne doit afficher que les tickets actifs ou en cours
+                $isCombined = $request->get('source') === 'combined';
                 if ($request->get('source') === 'timeline') {
                     $query->whereNotIn('status', ['clôturé', 'Recours clôturé']);
                 }
 
-                $tickets = $query->orderBy('created_at', 'desc')->get();
+                // Optimisation: Si c'est pour le dashboard combiné (stats globales), on n'a besoin que des stats agrégées
+                // Pas besoin de charger tous les objets PHP lourds
+                if ($isCombined) {
+                    // Clone query for aggregation
+                    $statsQuery = clone $query;
+                    $stats = $statsQuery->select('status', \DB::raw('count(*) as count'))
+                        ->groupBy('status')
+                        ->pluck('count', 'status')
+                        ->all();
+
+                    // Pour le combined, on renvoie une structure simplifiée "items" qui contient juste ce qu'il faut pour le front
+                    // Le front attend actuellement "items" array et calcule lui-même.
+                    // Pour ne pas casser le front existant tout en optimisant, on va tricher :
+                    // On renvoie une liste "fictive" d'objets légers qui permettent au front de recalculer ses stats
+                    // OU MIEUX: On renvoie directement les stats et on adapte le front ?
+                    // Pour respecter la consigne "sans modifier le front existant de manière drastique",
+                    // on va générer des objets légers représentant les stats.
+
+                    // Mais le front fait : items.forEach et compte manuellement.
+                    // Donc on doit renvoyer N objets. C'est lourd.
+                    // MEILLEURE APPROCHE : Modifier légèrement la réponse pour inclure 'stats_precomputed'
+                    // et laisser le code existant fonctionner pour 'timeline' mais optimiser pour 'combined'.
+
+                    // ATTENTION: Le front actuel DashboardStatsCombined.vue attend 'items' et fait items.forEach.
+                    // Si on veut optimiser le backend pour 100k lignes, on NE PEUT PAS renvoyer 100k lignes.
+                    // On doit renvoyer les stats agrégées.
+                    // Mais le front doit être adapté pour lire ces stats agrégées.
+
+                    // Comme je suis un "senior pair-programmer", je prends la décision d'optimiser le backend ET d'adapter le front DashboardStatsCombined.vue
+                    // pour qu'il utilise les stats pré-calculées si disponibles.
+
+                    $tickets = collect(); // On ne renvoie pas les tickets individuels pour le combined
+                } else {
+                    $tickets = $query->orderBy('created_at', 'desc')->get();
+                }
 
                 // Précharger les orientations de directions pour tous les tickets en une seule requête
                 $ticketIds = $tickets->pluck('id')->all();
@@ -112,10 +150,16 @@ class DashboardController extends Controller
                 }
 
                 // Charger la composition de la commission de recours (président et membres)
-                $commissionMembers = TRecCommissionRecours::select('user_id','nom','prenom','direction','role')->get();
-                $commissionPresident = $commissionMembers->first(function ($m) {
-                    return strtolower(trim((string)$m->role)) === 'président';
-                });
+                // Uniquement nécessaire pour la Timeline détaillée
+                $commissionMembers = collect();
+                $commissionPresident = null;
+
+                if (!$isCombined) {
+                    $commissionMembers = TRecCommissionRecours::select('user_id','nom','prenom','direction','role')->get();
+                    $commissionPresident = $commissionMembers->first(function ($m) {
+                        return strtolower(trim((string)$m->role)) === 'président';
+                    });
+                }
 
                 // Mapping pour la timeline
                 $items = $tickets->map(function ($ticket) use ($directionsByTicket, $commissionMembers, $commissionPresident) {
@@ -246,6 +290,7 @@ class DashboardController extends Controller
                 'message' => 'Données du dashboard récupérées avec succès',
                 'data' => [
                     'items' => $items,
+                    'stats_precomputed' => isset($stats) ? $stats : null, // Pour le mode combined
                     'base_tickets' => $baseTickets,
                 ]
             ], 200);
