@@ -19,7 +19,6 @@ class DashboardService
      */
     public function getTimelineData($user, array $filters): array
     {
-        $privilege = $user->scopePrivileges('liste_des_reclamations');
 
         $dateFrom = $filters['date_from'] ?? null;
         $dateTo = $filters['date_to'] ?? null;
@@ -27,6 +26,8 @@ class DashboardService
         $bticketIds = $filters['bticket_ids'] ?? [];
         $source = $filters['source'] ?? null;
         $statuses = $filters['statuses'] ?? [];
+
+        $privilege = $source === 'timeline' ? $user->scopePrivileges('dasboard_détaillé') : $user->scopePrivileges('dasboard_global');
 
         // Normaliser bticket_ids: accepter CSV ou tableau
         if (is_string($bticketIds)) {
@@ -63,17 +64,23 @@ class DashboardService
                     ->pluck('tticket_id');
             }
 
-            $query->where(function ($q) use ($privilege, $tticket_ids, $isCommissionMember, $user) {
-                if ($privilege->role === 'employe_Répondeur') {
-                    $q->whereIn('id', $tticket_ids)
-                      ->orWhere('user_id', $user->id);
-                } else {
-                    $q->where('user_id', $user->id);
-                }
-                if ($isCommissionMember) {
-                    $q->orWhereIn('status', ['Recours', 'Recours clôturé']);
-                }
-            });
+            // Si Admin, pas de restriction de portée (voit tout)
+            if ($privilege->role !== 'Admin') {
+                $query->where(function ($q) use ($privilege, $tticket_ids, $isCommissionMember, $user) {
+                    if ($privilege->role === 'employe_Répondeur') {
+                        $q->whereIn('id', $tticket_ids)
+                          ->orWhere('user_id', $user->id);
+                    } else {
+                        // Demandeur standard : voit uniquement ses tickets
+                        $q->where('user_id', $user->id);
+                    }
+
+                    // Membre commission : voit aussi les recours
+                    if ($isCommissionMember) {
+                        $q->orWhereIn('status', ['Recours', 'Recours clôturé']);
+                    }
+                });
+            }
 
             // Filtres
             if (!empty($dateFrom)) {
