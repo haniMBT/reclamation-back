@@ -82,6 +82,16 @@ class DashboardService
                 });
             }
 
+            $visibilite = $privilege->visibilite ?? null;
+            if ($visibilite === 'L') {
+                $query->whereHas('baseTicket', function ($q) use ($user) {
+                    $q->where('direction', $user->direction);
+                });
+            }
+            if ($visibilite === 'P') {
+                $query->where('user_id', $user->id);
+            }
+
             // Filtres
             if (!empty($dateFrom)) {
                 $query->whereDate('created_at', '>=', $dateFrom);
