@@ -57,7 +57,7 @@ class UserController extends Controller
         //         $utilisateurs = $utilisateurs->where("user.direction", $request->dr_id);
         //     }
         // }
-         elseif ($privilege->visibilite == "L") {
+        if ($privilege->visibilite == "L") {
             $utilisateurs = $utilisateurs->where("users.direction", Auth::user()->direction);
 
         } elseif ($privilege->visibilite == "P") {
