@@ -18,7 +18,11 @@ return new class extends Migration
             $table->boolean('scan')->default(false)->comment('Avec scanner');
             $table->date('date_fin')->comment('Date de fin prévisionnelle');
             $table->decimal('ttc', 12, 2)->comment('Montant TTC');
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            
+            // On utilise integer car users.id est int sur SQL Server existant
+            // On ne met pas de contrainte foreign key car users.id n'a pas de PK
+            $table->integer('user_id'); 
+            
             $table->timestamps();
             
             $table->index(['user_id', 'created_at']);

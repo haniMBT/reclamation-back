@@ -12,7 +12,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('b_rec_tickets', function (Blueprint $table) {
-            $table->text('definition')->nullable();
+             if (!Schema::hasColumn('b_rec_tickets', 'definition')) {
+                $table->text('definition')->nullable();
+            }
         });
     }
 
@@ -22,7 +24,9 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('b_rec_tickets', function (Blueprint $table) {
-            $table->dropColumn('definition');
+            if (Schema::hasColumn('b_rec_tickets', 'definition')) {
+                $table->dropColumn('definition');
+            }
         });
     }
 };
