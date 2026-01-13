@@ -611,6 +611,7 @@ class DirectionController extends Controller
                 // Mettre à jour le ticket
                 $ticket->accepter_piloter = true;
                 $ticket->motif_refu_changement = null;
+                $ticket->direction = $concernedDirection;
                 $ticket->save();
 
                 // Notifications d’acceptation pour les employés répondeurs de la nouvelle direction pilote
