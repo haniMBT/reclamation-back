@@ -123,6 +123,10 @@ class MessageController extends Controller
                 ->orderBy(DB::raw("CASE WHEN role = 'président' THEN 1 ELSE 0 END"), 'desc')
                 ->get();
 
+            $requestingDirection = \App\Models\ReclamationClient\TRecTicketDirection::where('tticket_id', $ticketId)
+                ->where('type_orientation', 'ticket')
+                ->value('direction');
+
             return response()->json([
                 'success' => true,
                 'data' => $messages,
@@ -132,7 +136,8 @@ class MessageController extends Controller
                 'createur' => $creatorInfo, // Informations du créateur (null si c'est le créateur lui-même)
                 'is_commission_member' => $isCommissionMember,
                 'is_commission_president' => $isPresidentCommission,
-                'commission_recours' => $commissionMembers
+                'commission_recours' => $commissionMembers,
+                'requesting_direction' => $requestingDirection
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -222,6 +227,8 @@ class MessageController extends Controller
             }
 
             $messages = $messagesQuery->orderBy('date_envoie', 'desc')->get();
+            $requestingDirection = \App\Models\ReclamationClient\TRecTicketDirection::where('tticket_id', $ticketId)->where('type_orientation', 'ticket')->value('direction');
+            $requestingDirection = \App\Models\ReclamationClient\TRecTicketDirection::where('tticket_id', $ticketId)->where('type_orientation', 'ticket')->value('direction');
 
             // Commission flags
             $isCommissionMember = \App\Models\ReclamationClient\TRecCommissionRecours::where('user_id', Auth::id())->exists();
@@ -267,6 +274,7 @@ class MessageController extends Controller
                 'is_commission_member' => $isCommissionMember,
                 'is_commission_president' => $isPresidentCommission,
                 'commission_recours' => $commissionMembers,
+                'requesting_direction' => $requestingDirection,
                 'directions' => $directions,
                 'directionsNonConcerne' => $directionsNonConcerne,
             ], 200);
