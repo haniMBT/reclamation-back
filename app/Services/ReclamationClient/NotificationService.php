@@ -121,7 +121,12 @@ class NotificationService
                     ->join('p_profils', 'p_profils.code', '=', 'p_privileges.profil_code')
                     ->whereColumn('p_profils.code', 'users.privilege')
                     ->where('p_privileges.volet', 'liste_des_reclamations')
-                    ->whereRaw('LOWER(p_privileges.role) = ?', [strtolower('employe_repondeur')]);
+                    ->whereRaw(
+                        (DB::connection()->getDriverName() === 'sqlsrv')
+                            ? "LOWER(p_privileges.role COLLATE SQL_Latin1_General_CP1_CI_AI) = ?"
+                            : "LOWER(p_privileges.role) = ?",
+                        [strtolower('employe_repondeur')]
+                    );
             })
             ->get();
     }
@@ -650,7 +655,12 @@ class NotificationService
                 ->join('p_profils', 'p_profils.code', '=', 'p_privileges.profil_code')
                 ->where('p_profils.code', $user->privilege)
                 ->where('p_privileges.volet', 'liste_des_reclamations')
-                ->whereRaw('LOWER(p_privileges.role) = ?', [strtolower('employe_repondeur')])
+                ->whereRaw(
+                    (DB::connection()->getDriverName() === 'sqlsrv')
+                        ? "LOWER(p_privileges.role COLLATE SQL_Latin1_General_CP1_CI_AI) = ?"
+                        : "LOWER(p_privileges.role) = ?",
+                    [strtolower('employe_repondeur')]
+                )
                 ->exists();
 
             return $hasPrivilege;
