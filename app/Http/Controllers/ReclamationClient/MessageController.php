@@ -120,7 +120,7 @@ class MessageController extends Controller
             $isPresidentCommission = TRecCommissionRecours::where('user_id', Auth::id())->where('role', 'président')->exists();
             // Charger la liste des membres de la commission pour éviter un second appel API côté frontend
             $commissionMembers = TRecCommissionRecours::select('user_id','nom','prenom','email','matricule','direction','role')
-                ->orderByDesc(DB::raw("role = 'président'"))
+                ->orderBy(DB::raw("CASE WHEN role = 'président' THEN 1 ELSE 0 END"), 'desc')
                 ->get();
 
             return response()->json([
@@ -227,7 +227,7 @@ class MessageController extends Controller
             $isCommissionMember = \App\Models\ReclamationClient\TRecCommissionRecours::where('user_id', Auth::id())->exists();
             $isPresidentCommission = \App\Models\ReclamationClient\TRecCommissionRecours::where('user_id', Auth::id())->where('role', 'président')->exists();
             $commissionMembers = \App\Models\ReclamationClient\TRecCommissionRecours::select('user_id','nom','prenom','email','matricule','direction','role')
-                ->orderByDesc(DB::raw("role = 'président'"))
+                ->orderBy(DB::raw("CASE WHEN role = 'président' THEN 1 ELSE 0 END"), 'desc')
                 ->get();
 
             // Directions liées au ticket (même structure que DirectionController::index)
