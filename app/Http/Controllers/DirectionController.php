@@ -564,7 +564,7 @@ class DirectionController extends Controller
             $validated = $request->validate([
                 'decision' => 'required|string|in:accept,refuse',
                 'direction' => 'required|string|min:2',
-                'motif_refus' => 'nullable|string|min:3',
+                'motif_refus' => 'nullable|string',
             ]);
 
             $ticket = TRecTicket::findOrFail($ticketId);
