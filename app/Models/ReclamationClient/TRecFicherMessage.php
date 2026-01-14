@@ -65,15 +65,12 @@ class TRecFicherMessage extends Model
     public function getFormattedSizeAttribute()
     {
         $bytes = $this->taille_fichier;
-        
         if ($bytes === 0) {
             return '0 Bytes';
         }
-        
         $k = 1024;
         $sizes = ['Bytes', 'KB', 'MB', 'GB'];
         $i = floor(log($bytes) / log($k));
-        
         return round($bytes / pow($k, $i), 2) . ' ' . $sizes[$i];
     }
 
@@ -83,7 +80,6 @@ class TRecFicherMessage extends Model
     public function getFileIconAttribute()
     {
         $mimeType = $this->type_mime;
-        
         if (strpos($mimeType, 'image/') === 0) {
             return 'image';
         } elseif ($mimeType === 'application/pdf') {
@@ -98,12 +94,20 @@ class TRecFicherMessage extends Model
     }
 
     /**
-     * Supprimer le fichier du disque lors de la suppression du modèle
+     * Prepare a date for array / JSON serialization.
+     *
+     * @param  \DateTimeInterface  $date
+     * @return string
      */
+    protected function serializeDate(\DateTimeInterface $date)
+    {
+        return $date->format('Y-m-d H:i:s');
+    }
+
+
     protected static function boot()
     {
         parent::boot();
-        
         static::deleting(function ($fichier) {
             if ($fichier->fileExists()) {
                 Storage::disk('public')->delete($fichier->chemin_fichier);

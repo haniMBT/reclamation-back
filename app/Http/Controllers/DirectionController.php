@@ -593,6 +593,8 @@ class DirectionController extends Controller
             }
 
             if ($validated['decision'] === 'accept') {
+                $notificationService = new \App\Services\ReclamationClient\NotificationService();
+
                 // Marquer l'ancienne direction pilote
                 $currentPilot = TRecTicketDirection::where('tticket_id', $ticket->id)
                     ->where('type_orientation', 'ticket')
@@ -601,6 +603,18 @@ class DirectionController extends Controller
                 if ($currentPilot) {
                     $currentPilot->type_orientation = 'changement_accepter';
                     $currentPilot->save();
+
+                    // Envoyer notification à l'ancienne direction pilote
+                    try {
+                        $notificationService->createOldPilotNotification(
+                            $ticket,
+                            $currentPilot->direction,
+                            $concernedDirection,
+                            Auth::id()
+                        );
+                    } catch (\Exception $e) {
+                        Log::error("Erreur notification ancienne direction pilote: " . $e->getMessage());
+                    }
                 }
 
                 // La direction de la demande devient pilote
@@ -616,7 +630,6 @@ class DirectionController extends Controller
 
                 // Notifications d’acceptation pour les employés répondeurs de la nouvelle direction pilote
                 try {
-                    $notificationService = new \App\Services\ReclamationClient\NotificationService();
                     $notificationService->createPilotChangeNotifications($ticket, $concernedDirection, Auth::id());
                 } catch (\Exception $e) {
                     Log::error("Erreur notification acceptation changement pilote: " . $e->getMessage());

@@ -14,7 +14,14 @@ class TRecDestinataireMessage extends Model
     protected $fillable = [
         'message_id',
         'direction_destinataire',
-        'statut'
+        'statut',
+        'lu',
+        'date_lecture'
+    ];
+
+    protected $casts = [
+        'date_lecture' => 'datetime',
+        'lu' => 'boolean'
     ];
 
     /**
@@ -49,5 +56,16 @@ class TRecDestinataireMessage extends Model
     public function scopePourDirection($query, $directionId)
     {
         return $query->where('direction_destinataire_recepteur', $directionId);
+    }
+
+    /**
+     * Prepare a date for array / JSON serialization.
+     *
+     * @param  \DateTimeInterface  $date
+     * @return string
+     */
+    protected function serializeDate(\DateTimeInterface $date)
+    {
+        return $date->format('Y-m-d H:i:s');
     }
 }

@@ -954,4 +954,52 @@ class NotificationService
             \Log::error("Erreur lors de l'information de la direction pilote sur retrait d'une autre direction, ticket {$ticket->id}: " . $e->getMessage());
         }
     }
+
+    /**
+     * Informer l'ancienne direction pilote qu'elle n'est plus pilote après acceptation du transfert
+     *
+     * @param TRecTicket $ticket
+     * @param string $oldPilotDirection Ancienne direction pilote
+     * @param string $newPilotDirection Nouvelle direction pilote
+     * @param int $actorUserId ID utilisateur ayant accepté le transfert
+     * @return void
+     */
+    public function createOldPilotNotification(TRecTicket $ticket, string $oldPilotDirection, string $newPilotDirection, int $actorUserId): void
+    {
+        try {
+            if (!$ticket->relationLoaded('baseTicket')) {
+                $ticket->load('baseTicket');
+            }
+            $libelle = $ticket->baseTicket ? $ticket->baseTicket->libelle : $ticket->objet;
+
+            // Trouver les employés répondeurs de l'ancienne direction pilote
+            $targetUsers = $this->findEmployeRepondeursByDirection($oldPilotDirection);
+            foreach ($targetUsers as $targetUser) {
+                if ($targetUser && $targetUser->id != $actorUserId) {
+                    $message = "Votre direction n'est plus pilote de la réclamation \"{$ticket->objet}\" ticket \"{$libelle}\". La nouvelle direction pilote est \"{$newPilotDirection}\".";
+
+                    $this->createNotification([
+                        'tticket_id' => $ticket->id,
+                        'sender_id' => $actorUserId,
+                        'id_recepteur' => $targetUser->id,
+                        'direction' => $oldPilotDirection,
+                        'message' => $message,
+                        'type' => 'changement_pilote_accepte',
+                        'mode' => 'traitement', // ou autre statut approprié
+                        'meta' => [
+                            'ticket_title' => $ticket->objet,
+                            'libelle' => $libelle,
+                            'ancienne_direction' => $oldPilotDirection,
+                            'nouvelle_direction' => $newPilotDirection,
+                        ],
+                        'is_read' => 0
+                    ]);
+
+                    \Log::info("Notification envoyée à l'ancienne direction pilote {$oldPilotDirection} sur ticket {$ticket->id}, utilisateur: {$targetUser->id}");
+                }
+            }
+        } catch (\Exception $e) {
+            \Log::error("Erreur lors de l'information de l'ancienne direction pilote, ticket {$ticket->id}: " . $e->getMessage());
+        }
+    }
 }
