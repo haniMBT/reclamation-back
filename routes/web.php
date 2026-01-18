@@ -1,7 +1,5 @@
 <?php
 
-use App\Http\Controllers\epayment\PayementController;
-use App\Http\Controllers\epayment\FactureController;
 use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\SiteController;
@@ -26,24 +24,4 @@ require __DIR__ . '/auth.php';
 // Route pour les conditions d'utilisation (PDF)
 Route::get('conditions', [SiteController::class, 'generateConditions'])->name('conditions');
 
-// Routes e-paiement
-Route::get('epayment/factures/{id}/pdf', [FactureController::class, 'generatePDF']);
-Route::get('epayment/conditions/pdf', [SiteController::class, 'generateConditions']);
-
-// Route::middleware('auth')->group(function () {
-Route::post('/payment/process/{id}/{email}', [PayementController::class, 'processPayment'])->name('payment.process');
-Route::get('/payment/success/{id}', [PayementController::class, 'success'])->name('payment.success');
-Route::get('/payment/failure/{id}', [PayementController::class, 'failure'])->name('payment.failure');
-Route::get('/erreur-paiement', [PayementController::class, 'errorPayment'])->name('payment.error');
-Route::get('/payment/printrecu/{id}', [PayementController::class, 'printrecu'])->name('payment.printrecu');
-Route::get('/receipt/{id}/download', [PayementController::class, 'downloadrecu'])->name('payment.downloadrecu');
-Route::post('/receipt/{id}/send-email', [PayementController::class, 'sendmail'])->name('payment.sendmail');
-Route::get('/receiptByFacture/{id}', [PayementController::class, 'downloadrecuByFacture'])->name('payment.downloadrecuByFacture');
-// });
-
-Route::middleware('auth')->group(function () {
-    // Route::get('/payment/success/{id}/{email}', [PayementController::class, 'success']);
-    // Route::get('/payment/failure/{id}', [PayementController::class, 'failure']);
-    Route::get('/receipt/{id}', [PayementController::class, 'getReceipt']);
-    Route::get('/erreur-paiement/{id}', [PayementController::class, 'errorPayment'])->name('payment.erreur');
-});
+// Autres routes web protégées peuvent être ajoutées ici

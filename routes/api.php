@@ -5,7 +5,6 @@ use App\Http\Controllers\VoletController;
 use App\Http\Controllers\SecuriteController;
 use App\Http\Controllers\MainController;
 use App\Http\Controllers\UserProfileController;
-use App\Http\Controllers\Proforma\ProformaController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -75,28 +74,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
         ]);
     });
 
-      // Routes du module e-paiement pour utilisateurs authentifiés
-    Route::prefix('epayment')->group(function () {
-        // Gestion des factures
-        Route::get('/factures', [App\Http\Controllers\epayment\FactureController::class, 'index']);
-        Route::get('/factures/{id}', [App\Http\Controllers\epayment\FactureController::class, 'show']);
-        Route::get('/facturesStats', [App\Http\Controllers\epayment\FactureController::class, 'stats']);
-
-        // Gestion des paiements
-        // Route::post('/payment/process/{id}', [App\Http\Controllers\epayment\PaymentController::class, 'processPayment']);
-        // Route::get('/payment/success/{id}', [App\Http\Controllers\epayment\PaymentController::class, 'success']);
-        // Route::get('/payment/failure/{id}', [App\Http\Controllers\epayment\PaymentController::class, 'failure']);
-        // Route::get('/receipt/{recuId}', [App\Http\Controllers\epayment\PaymentController::class, 'getReceipt']);
-    });
-
-    // Routes du module proforma pour utilisateurs authentifiés
-    Route::prefix('proforma')->group(function () {
-        Route::get('/', [ProformaController::class, 'index']);
-        Route::post('/search', [ProformaController::class, 'search']);
-        Route::post('/calculate', [ProformaController::class, 'calculate']);
-        Route::get('/history', [ProformaController::class, 'history']);
-    });
-    
     // Récupérer le privilège d'un volet spécifique pour l'utilisateur courant
     Route::get('/all/privileges', [MainController::class, 'allPrivileges']);
 
