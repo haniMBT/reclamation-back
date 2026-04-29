@@ -1,0 +1,95 @@
+<?php
+
+use App\Http\Controllers\ReclamationClient\ReclamationController;
+use App\Http\Controllers\ReclamationClient\NatureController;
+use App\Http\Controllers\ReclamationClient\ParametrageController;
+use App\Http\Controllers\ReclamationClient\TicketController;
+use App\Http\Controllers\ReclamationClient\TypeController;
+use App\Http\Controllers\ReclamationClient\MessageController;
+use App\Http\Controllers\ReclamationClient\MessageRecoursController;
+use App\Http\Controllers\ReclamationClient\NotificationController;
+use App\Http\Controllers\DirectionController;
+use Illuminate\Support\Facades\Route;
+
+/*
+|--------------------------------------------------------------------------
+| API Réclamation Routes
+|--------------------------------------------------------------------------
+|
+| Routes pour la gestion des réclamations clients
+|
+*/
+
+// Routes protégées pour les réclamations
+Route::middleware(['auth:sanctum', 'check.token.expiration'])->group(function () {
+
+
+    // Routes pour le paramétrage
+    Route::get('rec/parametrage', [ParametrageController::class, 'index'])->name('parametrage.index');
+    Route::post('rec/parametrage/commission-recours', [ParametrageController::class, 'saveCommissionRecours'])->name('parametrage.saveCommissionRecours');
+Route::post('rec/parametrage', [ParametrageController::class, 'store'])->name('parametrage.store');
+Route::post('rec/parametrage/{id}/duplicate', [ParametrageController::class, 'duplicate'])->name('parametrage.duplicate');
+Route::put('rec/parametrage/{id}', [ParametrageController::class, 'update'])->name('parametrage.update');
+    Route::delete('rec/parametrage/{id}', [ParametrageController::class, 'destroy'])->name('parametrage.destroy');
+    // Ajout de la route pour le basculement d'activation
+    Route::patch('rec/parametrage/{id}/toggle', [ParametrageController::class, 'toggleActive'])->name('parametrage.toggle');
+    // Routes pour les directions par défaut (auto)
+Route::get('rec/default-directions', [ParametrageController::class, 'defaultDirectionsIndex'])->name('parametrage.defaultDirections.index');
+Route::post('rec/default-directions', [ParametrageController::class, 'defaultDirectionsStore'])->name('parametrage.defaultDirections.store');
+Route::delete('rec/default-directions/{id}', [ParametrageController::class, 'defaultDirectionsDestroy'])->name('parametrage.defaultDirections.destroy');
+    Route::get('rec/tickets', [TicketController::class, 'index'])->name('tickets.index');
+    Route::get('rec/tickets/files/{fileId}/download', [TicketController::class, 'downloadFile'])->name('tickets.files.download');
+    Route::get('rec/tickets/indexAll', [TicketController::class, 'indexAll'])->name('tickets.indexAll');
+    Route::post('rec/tickets/check-duplicate', [TicketController::class, 'checkDuplicate'])->name('tickets.checkDuplicate');
+    Route::get('rec/tickets/{ticketId}/complete-data', [TicketController::class, 'getCompleteTicketData'])->name('tickets.getCompleteData');
+    Route::post('rec/tickets/complete', [TicketController::class, 'completeTicket'])->name('tickets.complete');
+    Route::post('rec/tickets/save-complete', [TicketController::class, 'saveComplete'])->name('tickets.saveComplete');
+    Route::post('rec/tickets/validate', [TicketController::class, 'validateTicket'])->name('tickets.validate');
+    Route::post('rec/tickets/{ticketId}/close', [TicketController::class, 'closeTicket'])->name('tickets.close');
+
+    // Routes pour l'édition des tickets créés
+    Route::get('rec/tickets/{id}/edit', [TicketController::class, 'getTicketForEdit'])->name('tickets.getForEdit');
+    Route::put('rec/tickets/{id}', [TicketController::class, 'updateTicket'])->name('tickets.update');
+    Route::post('rec/tickets/{id}', [TicketController::class, 'updateTicket'])->name('tickets.update.post');
+    Route::delete('rec/tickets/{id}', [TicketController::class, 'destroy'])->name('tickets.destroy');
+
+    // Routes pour les types et détails (API centralisée)
+    Route::put('rec/ticket/{ticketId}/types', [TypeController::class, 'storeOrUpdateGlobal'])->name('type.storeOrUpdateGlobal');
+    Route::put('rec/type/global/{ticketId}', [TypeController::class, 'storeOrUpdateGlobalAlias'])->name('type.storeOrUpdateGlobalAlias');
+
+    // Routes pour les directions
+    Route::get('rec/directions_ticket/{ticket_id}', [DirectionController::class, 'index'])->name('directions.index');
+Route::post('rec/directions_ticket/{ticket_id}', [DirectionController::class, 'storeTicketDirection'])->name('directions.storeTicketDirection');
+Route::post('rec/directions_ticket/{ticket_id}/delete', [DirectionController::class, 'deleteTicketDirections'])->name('directions.deleteTicketDirection');
+// Suppression de la direction de l'utilisateur lorsque type_orientation == 'changement_accepter'
+Route::post('rec/tickets/{ticketId}/directions/self/delete', [DirectionController::class, 'deleteSelfAcceptedChangeDirection'])->name('tickets.direction.self.delete');
+    // API dédiée pour l'orientation changement avec motif
+    Route::post('rec/tickets/{ticketId}/orientation-changement', [DirectionController::class, 'storeOrientationChange'])->name('tickets.orientationChange');
+    Route::post('rec/tickets/{ticketId}/orientation-changement/decision', [DirectionController::class, 'decideOrientationChange'])->name('tickets.orientationChange.decision');
+    Route::get('rec/directions/{id}', [DirectionController::class, 'show'])->name('directions.show');
+    Route::post('rec/directions', [DirectionController::class, 'store'])->name('directions.store');
+    Route::put('rec/directions/{id}', [DirectionController::class, 'update'])->name('directions.update');
+    Route::delete('rec/directions/{id}', [DirectionController::class, 'destroy'])->name('directions.destroy');
+
+    // Routes pour les messages
+Route::get('rec/tickets/{ticketId}/messages', [MessageController::class, 'index'])->name('messages.index');
+// Endpoint combiné: messages + directions pour un ticket
+Route::get('rec/tickets/{ticketId}/messages-directions', [MessageController::class, 'indexWithDirections'])->name('messages.indexWithDirections');
+Route::post('rec/tickets/{ticketId}/messages', [MessageController::class, 'store'])->name('messages.store');
+Route::post('rec/tickets/{ticketId}/messages/reply', [MessageController::class, 'reply'])->name('messages.reply');
+Route::post('rec/tickets/{ticketId}/messages/recour', [MessageController::class, 'recour'])->name('messages.recour');
+// Nouvelle API dédiée aux messages de recours (sans notifications, destinataires par membres)
+Route::post('rec/tickets/{ticketId}/messages-recours', [MessageRecoursController::class, 'store'])->name('messages.recours.store');
+Route::get('rec/messages/{id}', [MessageController::class, 'show'])->name('messages.show');
+Route::put('rec/messages/{id}/mark-as-read', [MessageController::class, 'markAsRead'])->name('messages.markAsRead');
+Route::delete('rec/tickets/{ticketId}/messages/{id}', [MessageController::class, 'destroy'])->name('messages.destroy');
+Route::get('rec/messages/attachments/{id}/download', [MessageController::class, 'downloadAttachment'])->name('messages.downloadAttachment');
+
+    // Routes pour les notifications
+    Route::get('rec/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::put('rec/notifications/{id}/mark-as-read', [NotificationController::class, 'markAsRead'])->name('notifications.markAsRead');
+    Route::put('rec/notifications/mark-all-as-read', [NotificationController::class, 'markAllAsRead'])->name('notifications.markAllAsRead');
+
+Route::get('rec/dashboard/timeline', [\App\Http\Controllers\ReclamationClient\DashboardController::class, 'timelineData'])->name('rec.dashboard.timeline');
+
+});
