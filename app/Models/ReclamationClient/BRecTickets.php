@@ -1,0 +1,82 @@
+<?php
+
+namespace App\Models\ReclamationClient;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class BRecTickets extends Model
+{
+    use HasFactory;
+
+    /**
+     * Le nom de la table associée au modèle.
+     */
+    protected $table = 'b_rec_tickets';
+
+    /**
+     * Les attributs qui peuvent être assignés en masse.
+     */
+    protected $fillable = [
+        'libelle',
+        'documentAfornir',
+        'direction',
+        'definition',
+        // Ajout du champ d'activation
+        'is_active',
+    ];
+
+    /**
+     * Les attributs qui doivent être mutés en dates.
+     */
+    protected $casts = [
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+        // Cast en booléen pour is_active
+        'is_active' => 'boolean',
+    ];
+
+    /**
+     * Relation : Un ticket peut avoir plusieurs types.
+     */
+    public function types(): HasMany
+    {
+        return $this->hasMany(BRecType::class, 'id_btickes');
+    }
+
+    /**
+     * Relation : Un ticket peut avoir plusieurs informations générales.
+     */
+    public function infosGenerales(): HasMany
+    {
+        return $this->hasMany(BRecInfoGeneral::class, 'bticket_id');
+    }
+
+    /**
+     * Relation : Un ticket peut avoir plusieurs directions par défaut.
+     */
+    public function defaultDirections(): HasMany
+    {
+        return $this->hasMany(BRecDefaultDirection::class, 'bticket_id');
+    }
+
+    /**
+     * Relation : Un ticket peut avoir plusieurs fichiers demandés.
+     */
+    public function filesDemandes(): HasMany
+    {
+        return $this->hasMany(BRecTicketFile::class, 'bticket_id');
+    }
+
+    /**
+     * Prepare a date for array / JSON serialization.
+     *
+     * @param  \DateTimeInterface  $date
+     * @return string
+     */
+    protected function serializeDate(\DateTimeInterface $date)
+    {
+        return $date->format('Y-m-d H:i:s');
+    }
+}

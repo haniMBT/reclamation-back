@@ -1,0 +1,84 @@
+# CI/CD pipeline for auth_s 
+# DEV → STAG → PROD workfl
+# The TL can choose environment manually when running a pipeline 
+
+variables:
+  DEPLOY_ENVIRONMENT:
+    value: "STAG"
+    options:
+      - "DEV"  
+      - "STAG"
+      - "PROD"
+    description: "The deployment env target. Set to 'dev' by default."
+
+
+
+    
+  Infra:
+    value: "Docker"
+    options:
+      - "Docker"  
+      - "Kubernetes"
+    description: "The deployment tech target. Set to 'Docker' by default."
+
+
+
+
+
+
+
+
+
+# build_ngnix:
+#   stage: update_deployment
+#   image: docker:25-git  # Contient Docker + Git
+#   dependencies:
+#     - compute_image_info
+#     - build_and_push
+
+#   services:
+#     - docker:dind
+
+#   script:
+#     # - PHP_IMAGE_TAG=$(cat image_tag.txt/image_tag.txt | tr -d '\n\r')
+#     - source name_and_tag_output/image_info.txt 
+#     - PHP_IMAGE_TAG=${IMAGE_TAG}
+#     - echo "Tag PHP récupéré  ${PHP_IMAGE_TAG}"
+#     - IMAGE=registry.epal.dz/suivi_budgetaire_achats/nginx:nginx-jeudi
+#     - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+#     - docker build --build-arg PHP_IMAGE_TAG=${PHP_IMAGE_TAG} -t $IMAGE -f ./nginx/Dockerfile ./nginx
+#     - docker push $IMAGE
+#     - docker system prune -f
+#   rules:
+#     - changes:
+#         - nginx/nginx.conf
+#       if: '$CI_COMMIT_REF_NAME =~ /^develop|staging|preprod|main$/'
+
+
+
+
+
+
+
+
+
+
+
+include:
+  - project: 'legacy/ci-cd-templates'
+    ref: 'main'  # Use main branch templates for main branch
+    file: '/application_ci.yml'
+
+workflow:
+
+  rules:
+    # Règle 1 : Autoriser les pipelines UNIQUEMENT sur la branche 'develop'.
+    # Cela se déclenche après une fusion (qui est un "push" sur la branche 'develop').
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+
+    # Règle 2 :  vérifier si MANUAL_DEPLOY est défini
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+
+    # blocker dans tous les autres cas
+    - when: never
+  
