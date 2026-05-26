@@ -13,6 +13,7 @@ use App\Models\ReclamationClient\BRecInfoGeneral;
 use App\Models\ReclamationClient\BRecTicketFile;
 use App\Models\ReclamationClient\TRecCommissionRecours;
 use App\Models\User;
+use App\Support\PrioriteHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
@@ -77,6 +78,7 @@ class ParametrageController extends Controller
                     'possibilite_suppression' => $ticket->possibilite_suppression,
                     'definition' => $ticket->definition,
                     'is_active' => $ticket->is_active,
+                    'priorite_defaut' => PrioriteHelper::normalize($ticket->priorite_defaut),
                     'created_at' => $ticket->created_at,
                     'updated_at' => $ticket->updated_at,
                     'infos_generales' => $ticket->infosGenerales->map(function ($info) {
@@ -148,6 +150,7 @@ class ParametrageController extends Controller
                 'privilege_pcr' => $privilege_pcr,
                 'users' => $users,
                 'commission_recours' => $commission,
+                'priorite_options' => PrioriteHelper::options(),
             ];
 
             return response()->json($data, 200);
@@ -323,6 +326,7 @@ class ParametrageController extends Controller
                 'files_demandes.*.libelle' => 'required|string',
                 'files_demandes.*.obligatoire' => 'required|boolean',
                 'files_demandes.*.format' => 'nullable|string',
+                'priorite_defaut' => 'nullable|string|in:' . implode(',', PrioriteHelper::values()),
             ], [
                 'libelle.required' => 'Le libellé est obligatoire',
                 'libelle.string' => 'Le libellé doit être une chaîne de caractères',
@@ -339,6 +343,7 @@ class ParametrageController extends Controller
                 'infos_generales.*.obligatoire.required' => 'Le caractère obligatoire est requis',
                 'infos_generales.*.obligatoire.boolean' => 'Le caractère obligatoire doit être un booléen',
                 'infos_generales.*.type.in' => 'Le type de champ doit être parmi: date, texte, montant, numéro',
+                'priorite_defaut.in' => 'La priorité par défaut n\'est pas valide',
             ]);
 
             if ($validator->fails()) {
@@ -357,6 +362,7 @@ class ParametrageController extends Controller
                     'direction' => $request->direction,
                     'definition' => $request->definition,
                     'is_active' => false,
+                    'priorite_defaut' => PrioriteHelper::normalize($request->priorite_defaut),
                 ]);
 
                 // Enregistrer les infos générales si elles sont fournies
@@ -437,6 +443,7 @@ class ParametrageController extends Controller
                 'files_demandes.*.libelle' => 'required|string',
                 'files_demandes.*.obligatoire' => 'required|boolean',
                 'files_demandes.*.format' => 'nullable|string',
+                'priorite_defaut' => 'nullable|string|in:' . implode(',', PrioriteHelper::values()),
             ], [
                 'libelle.required' => 'Le libellé est obligatoire',
                 'libelle.string' => 'Le libellé doit être une chaîne de caractères',
@@ -453,6 +460,7 @@ class ParametrageController extends Controller
                 'infos_generales.*.obligatoire.required' => 'Le caractère obligatoire est requis',
                 'infos_generales.*.obligatoire.boolean' => 'Le caractère obligatoire doit être un booléen',
                 'infos_generales.*.type.in' => 'Le type de champ doit être parmi: date, texte, montant, numéro',
+                'priorite_defaut.in' => 'La priorité par défaut n\'est pas valide',
             ]);
 
             if ($validator->fails()) {
@@ -465,12 +473,16 @@ class ParametrageController extends Controller
             // Utiliser une transaction pour garantir l'intégrité des données
             return DB::transaction(function () use ($request, $ticket) {
                 // Mettre à jour le ticket
-                $ticket->update([
+                $updateData = [
                     'libelle' => $request->libelle,
                     // 'documentAfornir' => $request->documentAfornir,
                     'direction' => $request->direction,
-                    'definition' => $request->definition
-                ]);
+                    'definition' => $request->definition,
+                ];
+                if ($request->has('priorite_defaut')) {
+                    $updateData['priorite_defaut'] = PrioriteHelper::normalize($request->priorite_defaut);
+                }
+                $ticket->update($updateData);
 
                 // Supprimer les anciennes infos générales
                 $ticket->infosGenerales()->delete();
@@ -720,6 +732,7 @@ class ParametrageController extends Controller
                     'documentAfornir' => $source->documentAfornir,
                     // ne pas activer par défaut
                     'is_active' => false,
+                    'priorite_defaut' => PrioriteHelper::normalize($source->priorite_defaut),
                 ]);
 
                 // Dupliquer les infos générales

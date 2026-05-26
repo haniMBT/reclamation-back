@@ -25,6 +25,7 @@ class BRecTickets extends Model
         'definition',
         // Ajout du champ d'activation
         'is_active',
+        'priorite_defaut',
     ];
 
     /**
