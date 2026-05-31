@@ -46,6 +46,7 @@ Route::delete('rec/default-directions/{id}', [ParametrageController::class, 'def
     Route::post('rec/tickets/save-complete', [TicketController::class, 'saveComplete'])->name('tickets.saveComplete');
     Route::post('rec/tickets/validate', [TicketController::class, 'validateTicket'])->name('tickets.validate');
     Route::post('rec/tickets/{ticketId}/close', [TicketController::class, 'closeTicket'])->name('tickets.close');
+    Route::put('rec/tickets/{ticketId}/priorite', [TicketController::class, 'updatePriorite'])->name('tickets.updatePriorite');
 
     // Routes pour l'édition des tickets créés
     Route::get('rec/tickets/{id}/edit', [TicketController::class, 'getTicketForEdit'])->name('tickets.getForEdit');

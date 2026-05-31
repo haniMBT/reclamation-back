@@ -13,6 +13,7 @@ use App\Models\ReclamationClient\BRecInfoGeneral;
 use App\Models\ReclamationClient\BRecTicketFile;
 use App\Models\ReclamationClient\TRecCommissionRecours;
 use App\Models\User;
+use App\Support\PrioriteHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
@@ -77,6 +78,7 @@ class ParametrageController extends Controller
                     'possibilite_suppression' => $ticket->possibilite_suppression,
                     'definition' => $ticket->definition,
                     'is_active' => $ticket->is_active,
+                    'priorite_defaut' => PrioriteHelper::normalize($ticket->priorite_defaut),
                     'created_at' => $ticket->created_at,
                     'updated_at' => $ticket->updated_at,
                     'infos_generales' => $ticket->infosGenerales->map(function ($info) {
@@ -148,6 +150,7 @@ class ParametrageController extends Controller
                 'privilege_pcr' => $privilege_pcr,
                 'users' => $users,
                 'commission_recours' => $commission,
+                'priorite_options' => PrioriteHelper::options(),
             ];
 
             return response()->json($data, 200);
@@ -323,6 +326,7 @@ class ParametrageController extends Controller
                 'files_demandes.*.libelle' => 'required|string',
                 'files_demandes.*.obligatoire' => 'required|boolean',
                 'files_demandes.*.format' => 'nullable|string',
+                'priorite_defaut' => 'nullable|string|in:' . implode(',', PrioriteHelper::values()),
             ], [
                 'libelle.required' => 'Le libellé est obligatoire',
                 'libelle.string' => 'Le libellé doit être une chaîne de caractères',
@@ -339,6 +343,7 @@ class ParametrageController extends Controller
                 'infos_generales.*.obligatoire.required' => 'Le caractère obligatoire est requis',
                 'infos_generales.*.obligatoire.boolean' => 'Le caractère obligatoire doit être un booléen',
                 'infos_generales.*.type.in' => 'Le type de champ doit être parmi: date, texte, montant, numéro',
+                'priorite_defaut.in' => 'La priorité par défaut n\'est pas valide',
             ]);
 
             if ($validator->fails()) {
@@ -357,6 +362,7 @@ class ParametrageController extends Controller
                     'direction' => $request->direction,
                     'definition' => $request->definition,
                     'is_active' => false,
+                    'priorite_defaut' => PrioriteHelper::normalize($request->priorite_defaut),
                 ]);
 
                 // Enregistrer les infos générales si elles sont fournies
@@ -437,6 +443,7 @@ class ParametrageController extends Controller
                 'files_demandes.*.libelle' => 'required|string',
                 'files_demandes.*.obligatoire' => 'required|boolean',
                 'files_demandes.*.format' => 'nullable|string',
+                'priorite_defaut' => 'nullable|string|in:' . implode(',', PrioriteHelper::values()),
             ], [
                 'libelle.required' => 'Le libellé est obligatoire',
                 'libelle.string' => 'Le libellé doit être une chaîne de caractères',
@@ -453,6 +460,7 @@ class ParametrageController extends Controller
                 'infos_generales.*.obligatoire.required' => 'Le caractère obligatoire est requis',
                 'infos_generales.*.obligatoire.boolean' => 'Le caractère obligatoire doit être un booléen',
                 'infos_generales.*.type.in' => 'Le type de champ doit être parmi: date, texte, montant, numéro',
+                'priorite_defaut.in' => 'La priorité par défaut n\'est pas valide',
             ]);
 
             if ($validator->fails()) {
@@ -465,12 +473,16 @@ class ParametrageController extends Controller
             // Utiliser une transaction pour garantir l'intégrité des données
             return DB::transaction(function () use ($request, $ticket) {
                 // Mettre à jour le ticket
-                $ticket->update([
+                $updateData = [
                     'libelle' => $request->libelle,
                     // 'documentAfornir' => $request->documentAfornir,
                     'direction' => $request->direction,
-                    'definition' => $request->definition
-                ]);
+                    'definition' => $request->definition,
+                ];
+                if ($request->has('priorite_defaut')) {
+                    $updateData['priorite_defaut'] = PrioriteHelper::normalize($request->priorite_defaut);
+                }
+                $ticket->update($updateData);
 
                 // Supprimer les anciennes infos générales
                 $ticket->infosGenerales()->delete();
@@ -720,6 +732,7 @@ class ParametrageController extends Controller
                     'documentAfornir' => $source->documentAfornir,
                     // ne pas activer par défaut
                     'is_active' => false,
+                    'priorite_defaut' => PrioriteHelper::normalize($source->priorite_defaut),
                 ]);
 
                 // Dupliquer les infos générales
@@ -844,9 +857,19 @@ class ParametrageController extends Controller
 
             $query = BRecDefaultDirection::with(['ticket:id,libelle,direction']);
 
-            // Respecter la visibilité: P/L -> filtrer sur la direction de l'utilisateur via le ticket associé
-            // Inclure également les entrées globales (bticket_id NULL)
-            if (in_array($privilege->visibilite, ['P', 'L'])) {
+            // Visibilité L: voir uniquement
+            //   - les lignes liées à un ticket de la direction de l'utilisateur
+            //   - les lignes globales (bticket_id NULL), quelle que soit la valeur de la colonne direction
+            // Visibilité P: comportement antérieur (filtre supplémentaire sur la colonne direction)
+            if ($privilege->visibilite === 'L') {
+                $userDirection = Auth::user()->direction;
+                $query->where(function ($q) use ($userDirection) {
+                    $q->whereHas('ticket', function ($qq) use ($userDirection) {
+                        $qq->where('direction', $userDirection);
+                    })
+                    ->orWhereNull('bticket_id');
+                });
+            } elseif ($privilege->visibilite === 'P') {
                 $userDirection = Auth::user()->direction;
                 $query->where(function ($q) use ($userDirection) {
                     $q->whereHas('ticket', function ($qq) use ($userDirection) {
@@ -870,6 +893,7 @@ class ParametrageController extends Controller
             });
 
             // Options pour les selects côté UI
+            // Tickets: en P/L on ne propose que les tickets de la direction de l'utilisateur
             $tickets = BRecTickets::select('id', 'libelle', 'direction')
                 ->when(in_array($privilege->visibilite, ['P', 'L']), function ($q) {
                     $q->where('direction', Auth::user()->direction);
@@ -877,9 +901,11 @@ class ParametrageController extends Controller
                 ->orderBy('libelle')
                 ->get();
 
+            // Directions: en visibilité L, l'utilisateur doit pouvoir sélectionner
+            // n'importe quelle direction (liste complète). En P, on garde le filtre.
             $directions = Direction::groupBy('DIRECTION')->select('DIRECTION')
-                ->when(in_array($privilege->visibilite, ['P', 'L']), function ($q) {
-                    $q->where('direction', Auth::user()->direction);
+                ->when($privilege->visibilite === 'P', function ($q) {
+                    $q->where('DIRECTION', Auth::user()->direction);
                 })
                 ->get();
 
@@ -904,15 +930,23 @@ class ParametrageController extends Controller
     public function defaultDirectionsStore(Request $request): JsonResponse
     {
         try {
+            $privilege = Auth::user()->scopePrivileges('parametrage');
+
+            // En visibilité L, le libellé du ticket est obligatoire
+            $bticketRule = $privilege && $privilege->visibilite === 'L'
+                ? 'required|integer|exists:b_rec_tickets,id'
+                : 'nullable|integer|exists:b_rec_tickets,id';
+
             $validator = Validator::make($request->all(), [
                 'direction' => 'required|string|exists:direction,DIRECTION',
                 'statut_direction' => 'required|string|in:consultation,traitement',
-                'bticket_id' => 'nullable|integer|exists:b_rec_tickets,id',
+                'bticket_id' => $bticketRule,
             ], [
                 'direction.required' => 'La direction est obligatoire',
                 'direction.exists' => 'La direction sélectionnée n\'existe pas',
                 'statut_direction.required' => 'Le statut est obligatoire',
                 'statut_direction.in' => 'Le statut doit être consultation ou traitement',
+                'bticket_id.required' => 'Le libellé du ticket est obligatoire',
                 'bticket_id.exists' => 'Le ticket sélectionné n\'existe pas',
             ]);
 
@@ -990,8 +1024,25 @@ class ParametrageController extends Controller
                 ], 404);
             }
 
-            // Visibilité: si P/L, ne permettre la suppression que si ticket.direction = user.direction ou bticket_id NULL
-            if (in_array($privilege->visibilite, ['P', 'L'])) {
+            // Visibilité L: la suppression est autorisée UNIQUEMENT si la ligne est
+            // liée à un ticket de la direction de l'utilisateur. Les lignes globales
+            // (bticket_id NULL) ne peuvent pas être supprimées par un utilisateur L.
+            if ($privilege->visibilite === 'L') {
+                $userDirection = Auth::user()->direction;
+                if (is_null($item->bticket_id)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Suppression non autorisée: cette ligne n'est associée à aucun ticket",
+                    ], 403);
+                }
+                $ticketDirection = optional($item->ticket)->direction;
+                if ($ticketDirection !== $userDirection) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Suppression non autorisée pour cette direction",
+                    ], 403);
+                }
+            } elseif ($privilege->visibilite === 'P') {
                 $userDirection = Auth::user()->direction;
                 $ticketDirection = optional($item->ticket)->direction;
                 if (!is_null($ticketDirection) && $ticketDirection !== $userDirection) {

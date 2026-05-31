@@ -277,6 +277,7 @@ class MessageController extends Controller
                 'requesting_direction' => $requestingDirection,
                 'directions' => $directions,
                 'directionsNonConcerne' => $directionsNonConcerne,
+                'priorite_options' => \App\Support\PrioriteHelper::options(),
             ], 200);
         } catch (\Exception $e) {
             return response()->json([

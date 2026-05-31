@@ -103,6 +103,9 @@ class TicketController extends Controller
             $typeId = $request->get('type_id', '');
             // filtres spécifiques supprimés (objet, nom, prénom, only_active_base, status unique)
             $bticketId = $request->get('bticket_id', '');
+            // Filtre priorité (liste séparée par virgule) et tri par priorité
+            $priorites = $request->get('priorites', '');
+            $sortByPriorite = filter_var($request->get('sort_by_priorite', true), FILTER_VALIDATE_BOOLEAN);
 
                // Privilege
             if (!empty($privilege)) {
@@ -189,9 +192,32 @@ class TicketController extends Controller
                 $query->where('bticket_id', (int) $bticketId);
             }
 
-            // Pagination avec tri
-            $tickets = $query->orderBy('created_at', 'desc')
-                           ->paginate($perPage, ['*'], 'page', $page);
+            // Filtre: par priorité (liste séparée par virgule)
+            if (!empty($priorites)) {
+                $prioriteList = array_values(array_filter(
+                    array_map('trim', explode(',', $priorites)),
+                    fn ($p) => \App\Support\PrioriteHelper::isValid($p)
+                ));
+                if (!empty($prioriteList)) {
+                    $query->whereIn('priorite', $prioriteList);
+                }
+            }
+
+            // Tri: par poids de priorité (décroissant) puis par date (récent en haut)
+            if ($sortByPriorite) {
+                $caseSql = "CASE priorite";
+                foreach (\App\Support\PrioriteHelper::LEVELS as $key => $meta) {
+                    $caseSql .= " WHEN '" . $key . "' THEN " . (int) $meta['weight'];
+                }
+                $caseSql .= " ELSE 0 END";
+                $query->orderByRaw($caseSql . ' DESC')
+                      ->orderBy('created_at', 'desc');
+            } else {
+                $query->orderBy('created_at', 'desc');
+            }
+
+            // Pagination
+            $tickets = $query->paginate($perPage, ['*'], 'page', $page);
 
             } else {
                 $tickets = null;
@@ -219,6 +245,7 @@ class TicketController extends Controller
                     'user_id' => $ticket->user_id,
                     'direction' => $ticket->direction,
                     'status' => $ticket->status ?? 'OUVERT',
+                    'priorite' => \App\Support\PrioriteHelper::normalize($ticket->priorite),
                     'description' => $ticket->description,
                     'is_creator_validated' => $ticket->is_creator_validated,
                     'objet' => $ticket->objet,
@@ -282,6 +309,7 @@ class TicketController extends Controller
                     'is_commission_member' => isset($isCommissionMember) ? $isCommissionMember : false,
                     'items' => $formattedTickets,
                     'available_statuses' => $availableStatuses,
+                    'priorite_options' => \App\Support\PrioriteHelper::options(),
                     'meta' => [
                         'current_page' => $tickets->currentPage(),
                         'per_page' => $tickets->perPage(),
@@ -481,12 +509,19 @@ class TicketController extends Controller
 
             DB::beginTransaction();
 
+            // Priorité initiale: récupérée depuis le ticket de base (paramétrage)
+            $baseTicketForPriorite = BRecTickets::find($bticketId);
+            $prioriteInitiale = \App\Support\PrioriteHelper::normalize(
+                $baseTicketForPriorite ? $baseTicketForPriorite->priorite_defaut : null
+            );
+
             // Insérer dans t_rec_tickets
             $ticketId = DB::table('t_rec_tickets')->insertGetId([
                 'bticket_id' => $bticketId,
                 'user_id' => auth::user()->id,
                 'direction' => $direction,
                 'status' => $status,
+                'priorite' => $prioriteInitiale,
                 'objet' => $objet,
                 'nom' => auth::user()->Nom,
                 'prenom' => auth::user()->Prenom,
@@ -1885,6 +1920,73 @@ class TicketController extends Controller
                 'success' => false,
                 'message' => 'Erreur lors de la clôture du ticket',
                 'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Mise à jour de la priorité d'une réclamation.
+     * Seul le pilote (role=employe_Répondeur ET direction = direction du ticket
+     * avec type_orientation='ticket') peut effectuer cette action.
+     */
+    public function updatePriorite(Request $request, int $ticketId): JsonResponse
+    {
+        try {
+            $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+                'priorite' => 'required|string|in:' . implode(',', \App\Support\PrioriteHelper::values()),
+            ], [
+                'priorite.required' => 'La priorité est obligatoire.',
+                'priorite.in' => 'La priorité n\'est pas valide.',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Données invalides',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $ticket = TRecTicket::find($ticketId);
+            if (!$ticket) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Réclamation introuvable',
+                ], 404);
+            }
+
+            // Vérifier que l'utilisateur est le pilote
+            $user = Auth::user();
+            $privilege = $user->scopePrivileges('liste_des_reclamations');
+            $isRepondeur = $privilege && $privilege->role === 'employe_Répondeur';
+            $pilotDirection = \App\Models\ReclamationClient\TRecTicketDirection::where('tticket_id', $ticketId)
+                ->where('type_orientation', 'ticket')
+                ->value('direction');
+            $isPilot = $isRepondeur && $pilotDirection && $user->direction === $pilotDirection;
+
+            if (!$isPilot) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Seul le pilote de la réclamation peut modifier la priorité.',
+                ], 403);
+            }
+
+            $newPriorite = \App\Support\PrioriteHelper::normalize($request->input('priorite'));
+            $ticket->update(['priorite' => $newPriorite]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Priorité mise à jour',
+                'data' => [
+                    'ticket_id' => $ticket->id,
+                    'priorite' => $ticket->priorite,
+                ],
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la mise à jour de la priorité',
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
