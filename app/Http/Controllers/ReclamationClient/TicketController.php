@@ -1861,17 +1861,28 @@ class TicketController extends Controller
             $ticket = TRecTicket::findOrFail($ticketId);
             $closedByUserId = \Illuminate\Support\Facades\Auth::id();
 
+            // Clôture d'un recours (par la commission) vs clôture pilote :
+            // la conclusion du recours est stockée séparément pour ne pas écraser
+            // la conclusion du pilote, qui reste consultable par la commission.
+            $isRecours = $ticket->status == 'Recours';
+
             // Transaction pour garantir l'atomicité des mises à jour
-            \Illuminate\Support\Facades\DB::transaction(function () use ($ticket, $closedByUserId, $request, $ticketId) {
+            \Illuminate\Support\Facades\DB::transaction(function () use ($ticket, $closedByUserId, $request, $ticketId, $isRecours) {
                 // Mise à jour du ticket
-                $ticket->update([
-                    'status' => $ticket->status == 'Recours' ? 'Recours clôturé' : 'clôturé',
-                    'closed_at' => $ticket->status == 'Recours' ? $ticket->closed_at : now(),
-                    'date_cloture_recours' => $ticket->status == 'Recours' ? now() : $ticket->date_cloture_recours,
+                $update = [
+                    'status' => $isRecours ? 'Recours clôturé' : 'clôturé',
+                    'closed_at' => $isRecours ? $ticket->closed_at : now(),
+                    'date_cloture_recours' => $isRecours ? now() : $ticket->date_cloture_recours,
                     'closed_by' => $closedByUserId,
-                    'reply_permission' => $ticket->status == 'Recours' ? 'employe_Répondeur' : $ticket->reply_permission,
-                    'conclusion' => $request->input('conclusion')
-                ]);
+                    'reply_permission' => $isRecours ? 'employe_Répondeur' : $ticket->reply_permission,
+                ];
+                // Conclusion séparée : recours vs pilote
+                if ($isRecours) {
+                    $update['conclusion_recours'] = $request->input('conclusion');
+                } else {
+                    $update['conclusion'] = $request->input('conclusion');
+                }
+                $ticket->update($update);
 
                 // Mise à jour des orientations liées au ticket pour passage en recour
                 if ($ticket->status == 'clôturé') {
@@ -1895,8 +1906,9 @@ class TicketController extends Controller
             }
 
             // Enregistrer les fichiers de conclusion s'ils existent
+            // (mode distinct pour ne pas mélanger les pièces jointes pilote/recours)
             if ($request->hasFile('files')) {
-                $this->handleTicketFileUploads($request->file('files'), $ticketId, 'conclusion');
+                $this->handleTicketFileUploads($request->file('files'), $ticketId, $isRecours ? 'conclusion_recours' : 'conclusion');
             }
 
             return response()->json([
