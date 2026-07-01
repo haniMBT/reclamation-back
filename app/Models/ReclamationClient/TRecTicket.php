@@ -38,6 +38,7 @@ class TRecTicket extends Model
         'status',
         'priorite',
         'objet',
+        'reference',
         'description',
         'nom',
         'prenom',

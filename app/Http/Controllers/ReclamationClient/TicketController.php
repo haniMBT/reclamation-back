@@ -147,6 +147,7 @@ class TicketController extends Controller
                 $query->where(function ($q) use ($search) {
                     $q->where('description', 'like', '%' . $search . '%')
                       ->orWhere('objet', 'like', '%' . $search . '%')
+                      ->orWhere('reference', 'like', '%' . $search . '%')
                       ->orWhere('nom', 'like', '%' . $search . '%')
                       ->orWhere('prenom', 'like', '%' . $search . '%')
                       ->orWhereHas('baseTicket', function ($subQ) use ($search) {
@@ -249,6 +250,7 @@ class TicketController extends Controller
                     'description' => $ticket->description,
                     'is_creator_validated' => $ticket->is_creator_validated,
                     'objet' => $ticket->objet,
+                    'reference' => $ticket->reference,
                     'closed_at' => $ticket->closed_at,
                     'created_at' => $ticket->created_at,
                     'updated_at' => $ticket->updated_at,
@@ -1866,6 +1868,15 @@ class TicketController extends Controller
             // la conclusion du pilote, qui reste consultable par la commission.
             $isRecours = $ticket->status == 'Recours';
 
+            // La référence de la réclamation (saisie par le pilote) est obligatoire
+            // avant de pouvoir clôturer la réclamation côté pilote.
+            if (!$isRecours && trim((string) $ticket->reference) === '') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'La référence de la réclamation doit être renseignée avant la clôture.',
+                ], 422);
+            }
+
             // Transaction pour garantir l'atomicité des mises à jour
             \Illuminate\Support\Facades\DB::transaction(function () use ($ticket, $closedByUserId, $request, $ticketId, $isRecours) {
                 // Mise à jour du ticket
@@ -1998,6 +2009,72 @@ class TicketController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la mise à jour de la priorité',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Mise à jour de la référence d'une réclamation.
+     * Seul le pilote (role=employe_Répondeur ET direction = direction du ticket
+     * avec type_orientation='ticket') peut renseigner ce champ, requis avant clôture.
+     */
+    public function updateReference(Request $request, int $ticketId): JsonResponse
+    {
+        try {
+            $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+                'reference' => 'required|string|max:255',
+            ], [
+                'reference.required' => 'La référence est obligatoire.',
+                'reference.max' => 'La référence ne doit pas dépasser 255 caractères.',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Données invalides',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $ticket = TRecTicket::find($ticketId);
+            if (!$ticket) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Réclamation introuvable',
+                ], 404);
+            }
+
+            // Vérifier que l'utilisateur est le pilote
+            $user = Auth::user();
+            $privilege = $user->scopePrivileges('liste_des_reclamations');
+            $isRepondeur = $privilege && $privilege->role === 'employe_Répondeur';
+            $pilotDirection = \App\Models\ReclamationClient\TRecTicketDirection::where('tticket_id', $ticketId)
+                ->where('type_orientation', 'ticket')
+                ->value('direction');
+            $isPilot = $isRepondeur && $pilotDirection && $user->direction === $pilotDirection;
+
+            if (!$isPilot) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Seul le pilote de la réclamation peut modifier la référence.',
+                ], 403);
+            }
+
+            $ticket->update(['reference' => trim($request->input('reference'))]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Référence mise à jour',
+                'data' => [
+                    'ticket_id' => $ticket->id,
+                    'reference' => $ticket->reference,
+                ],
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la mise à jour de la référence',
                 'error' => $e->getMessage(),
             ], 500);
         }
