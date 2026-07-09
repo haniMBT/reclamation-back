@@ -69,8 +69,8 @@ class MessageController extends Controller
                 $ticket_direction = null;
             }
 
-            // Construire la requête de base (fichiers toujours chargés)
-            $messagesQuery = TRecMessage::with('fichiers')
+            // Construire la requête de base (fichiers + expéditeur toujours chargés)
+            $messagesQuery = TRecMessage::with(['fichiers', 'sender:id,Nom,Prenom'])
                 ->where('tticket_id', $ticketId);
 
             // Vérifier si l'utilisateur courant est l'auteur du ticket
@@ -117,6 +117,14 @@ class MessageController extends Controller
             $messages = $messagesQuery
                 ->orderBy('date_envoie', 'desc')
                 ->get();
+
+            // Nom complet de l'expéditeur (Prénom + Nom) via le sender_id déjà enregistré
+            $messages->each(function ($msg) {
+                $prenom = $msg->sender->Prenom ?? '';
+                $nom = $msg->sender->Nom ?? '';
+                $msg->nom_expediteur = trim($prenom . ' ' . $nom) ?: null;
+                $msg->makeHidden('sender');
+            });
 
             // Commission de recours: flags pour la page messages
             $isCommissionMember = TRecCommissionRecours::where('user_id', Auth::id())->exists();
@@ -206,7 +214,7 @@ class MessageController extends Controller
                 $ticket_direction = null;
             }
 
-            $messagesQuery = TRecMessage::with('fichiers')->where('tticket_id', $ticketId);
+            $messagesQuery = TRecMessage::with(['fichiers', 'sender:id,Nom,Prenom'])->where('tticket_id', $ticketId);
             if ($ticket->user_id == Auth::id()) {
                 if ($privilege->role == 'employe_Répondeur') {
                     if ($ticket_direction!=null && $ticket_direction->direction == Auth::user()->direction) {
@@ -234,6 +242,15 @@ class MessageController extends Controller
             }
 
             $messages = $messagesQuery->orderBy('date_envoie', 'desc')->get();
+
+            // Nom complet de l'expéditeur (Prénom + Nom) via le sender_id déjà enregistré
+            $messages->each(function ($msg) {
+                $prenom = $msg->sender->Prenom ?? '';
+                $nom = $msg->sender->Nom ?? '';
+                $msg->nom_expediteur = trim($prenom . ' ' . $nom) ?: null;
+                $msg->makeHidden('sender');
+            });
+
             $requestingDirection = \App\Models\ReclamationClient\TRecTicketDirection::where('tticket_id', $ticketId)->where('type_orientation', 'ticket')->value('direction');
             $requestingDirection = \App\Models\ReclamationClient\TRecTicketDirection::where('tticket_id', $ticketId)->where('type_orientation', 'ticket')->value('direction');
 
