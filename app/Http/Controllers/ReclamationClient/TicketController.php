@@ -203,6 +203,9 @@ class TicketController extends Controller
                     $query->whereIn('priorite', $prioriteList);
                 }
             }
+            // Tri primaire: tickets non clôturés en premier (clôturé / Recours clôturé en bas)
+            $notClosedFirst = "CASE WHEN status IN (?, ?) THEN 1 ELSE 0 END";
+            $query->orderByRaw($notClosedFirst . ' ASC', ['clôturé', 'Recours clôturé']);
 
             // Tri: par poids de priorité (décroissant) puis par date (récent en haut)
             if ($sortByPriorite) {
