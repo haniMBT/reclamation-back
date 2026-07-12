@@ -25,6 +25,8 @@ class BRecTickets extends Model
         'definition',
         // Ajout du champ d'activation
         'is_active',
+        // Suppression logique
+        'is_deleted',
         'priorite_defaut',
     ];
 
@@ -36,6 +38,7 @@ class BRecTickets extends Model
         'updated_at' => 'datetime',
         // Cast en booléen pour is_active
         'is_active' => 'boolean',
+        'is_deleted' => 'boolean',
     ];
 
     /**

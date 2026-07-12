@@ -42,6 +42,7 @@ class ParametrageController extends Controller
                 'defaultDirections',
                 'filesDemandes'
             ])
+            ->where('is_deleted', false)
             ->when(in_array($privilege->visibilite, ['P', 'L']), function ($query) {
                 $query->where('direction', Auth::user()->direction);
             })
@@ -687,6 +688,112 @@ class ParametrageController extends Controller
 
             return response()->json([
                 'error' => 'Erreur lors de la suppression',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Suppression logique d'un ticket de base.
+     * Utilisée lorsque le ticket est déjà référencé par des réclamations et
+     * ne peut donc pas être supprimé physiquement. Le ticket est masqué du
+     * catalogue et n'est plus proposé pour de nouvelles réclamations, mais le
+     * lien avec les réclamations existantes reste intact.
+     */
+    public function softDelete($id): JsonResponse
+    {
+        try {
+            $ticket = BRecTickets::find($id);
+
+            if (!$ticket) {
+                return response()->json([
+                    'error' => 'Ticket non trouvé',
+                    'message' => 'Le ticket avec l\'ID ' . $id . ' n\'existe pas.'
+                ], 404);
+            }
+
+            $ticket->update(['is_deleted' => true]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Ticket supprimé (logiquement) avec succès',
+                'data' => [
+                    'ticket_id' => $ticket->id,
+                    'libelle' => $ticket->libelle,
+                ]
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Erreur lors de la suppression logique',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Restaurer un ticket supprimé logiquement.
+     */
+    public function restore($id): JsonResponse
+    {
+        try {
+            $ticket = BRecTickets::find($id);
+
+            if (!$ticket) {
+                return response()->json([
+                    'error' => 'Ticket non trouvé',
+                    'message' => 'Le ticket avec l\'ID ' . $id . ' n\'existe pas.'
+                ], 404);
+            }
+
+            $ticket->update(['is_deleted' => false]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Ticket restauré avec succès',
+                'data' => [
+                    'ticket_id' => $ticket->id,
+                    'libelle' => $ticket->libelle,
+                ]
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Erreur lors de la restauration',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Liste des tickets supprimés logiquement (corbeille).
+     */
+    public function deletedIndex(): JsonResponse
+    {
+        try {
+            $privilege = Auth::user()->scopePrivileges('parametrage');
+
+            $tickets = BRecTickets::where('is_deleted', true)
+                ->when(in_array($privilege->visibilite, ['P', 'L']), function ($query) {
+                    $query->where('direction', Auth::user()->direction);
+                })
+                ->orderBy('updated_at', 'desc')
+                ->get()
+                ->map(function ($ticket) {
+                    return [
+                        'id' => $ticket->id,
+                        'libelle' => $ticket->libelle,
+                        'direction' => $ticket->direction,
+                        'priorite_defaut' => PrioriteHelper::normalize($ticket->priorite_defaut),
+                        'updated_at' => $ticket->updated_at,
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'data' => $tickets,
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Erreur lors du chargement de la corbeille',
                 'message' => $e->getMessage()
             ], 500);
         }

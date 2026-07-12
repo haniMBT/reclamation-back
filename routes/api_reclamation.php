@@ -31,6 +31,10 @@ Route::post('rec/parametrage', [ParametrageController::class, 'store'])->name('p
 Route::post('rec/parametrage/{id}/duplicate', [ParametrageController::class, 'duplicate'])->name('parametrage.duplicate');
 Route::put('rec/parametrage/{id}', [ParametrageController::class, 'update'])->name('parametrage.update');
     Route::delete('rec/parametrage/{id}', [ParametrageController::class, 'destroy'])->name('parametrage.destroy');
+    // Suppression logique (corbeille) : liste, suppression logique et restauration
+    Route::get('rec/parametrage-deleted', [ParametrageController::class, 'deletedIndex'])->name('parametrage.deletedIndex');
+    Route::patch('rec/parametrage/{id}/soft-delete', [ParametrageController::class, 'softDelete'])->name('parametrage.softDelete');
+    Route::patch('rec/parametrage/{id}/restore', [ParametrageController::class, 'restore'])->name('parametrage.restore');
     // Ajout de la route pour le basculement d'activation
     Route::patch('rec/parametrage/{id}/toggle', [ParametrageController::class, 'toggleActive'])->name('parametrage.toggle');
     // Routes pour les directions par défaut (auto)

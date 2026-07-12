@@ -37,6 +37,7 @@ class TicketController extends Controller
             // Récupérer tous les tickets avec leurs informations générales
             $tickets = BRecTickets::with('infosGenerales')
                 ->where('is_active', true)
+                ->where('is_deleted', false)
                 ->orderBy('libelle', 'asc')
                 ->get();
 
